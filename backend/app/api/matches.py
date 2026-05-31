@@ -5,7 +5,7 @@ from app.api.deps import get_current_admin, get_current_user
 from app.core.database import get_db
 from app.models.match import Match
 from app.models.user import User
-from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate
+from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchTeamsUpdate
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -37,6 +37,24 @@ def delete_match(
         raise HTTPException(status_code=400, detail="No se puede eliminar un partido con resultado cargado")
     db.delete(match)
     db.commit()
+
+
+@router.put("/{match_id}/teams", response_model=MatchResponse)
+def update_teams(
+    match_id: int,
+    payload: MatchTeamsUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    """Manually update the home/away team names (useful for setting knockout-stage TBD teams)."""
+    match = db.get(Match, match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    match.home_team = payload.home_team
+    match.away_team = payload.away_team
+    db.commit()
+    db.refresh(match)
+    return match
 
 
 @router.put("/{match_id}/result", response_model=MatchResponse)

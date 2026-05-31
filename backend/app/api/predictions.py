@@ -47,7 +47,7 @@ def create_prediction(
     if existing:
         raise HTTPException(
             status_code=409,
-            detail="Ya tenés una predicción para este partido. Usá PUT para modificarla.",
+            detail="Ya tienes una predicción para este partido. Usa PUT para modificarla.",
         )
 
     prediction = Prediction(
@@ -73,7 +73,7 @@ def update_prediction(
     if not prediction:
         raise HTTPException(status_code=404, detail="Predicción no encontrada")
     if prediction.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="No podés modificar la predicción de otro usuario")
+        raise HTTPException(status_code=403, detail="No puedes modificar la predicción de otro usuario")
 
     match = db.get(Match, prediction.match_id)
     _assert_match_open(match)

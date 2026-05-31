@@ -9,6 +9,9 @@ class Match(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    # Official FIFA match number (1-104)
+    match_number = Column(Integer, nullable=True, index=True)
+
     # Identifiers
     home_team = Column(String(100), nullable=False)
     away_team = Column(String(100), nullable=False)

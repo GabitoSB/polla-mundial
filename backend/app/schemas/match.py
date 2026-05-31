@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class MatchResponse(BaseModel):
     id: int
+    match_number: int | None
     home_team: str
     away_team: str
     round_name: str | None
@@ -16,6 +17,7 @@ class MatchResponse(BaseModel):
 
 
 class MatchCreate(BaseModel):
+    match_number: int | None = None
     home_team: str
     away_team: str
     round_name: str | None = None
@@ -25,3 +27,8 @@ class MatchCreate(BaseModel):
 class MatchResultUpdate(BaseModel):
     home_score: int
     away_score: int
+
+
+class MatchTeamsUpdate(BaseModel):
+    home_team: str
+    away_team: str

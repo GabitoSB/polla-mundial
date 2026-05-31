@@ -12,7 +12,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
           <Navbar />
           <Routes>
             <Route path="/login" element={<LoginPage />} />

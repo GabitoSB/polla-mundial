@@ -130,7 +130,7 @@ La app queda disponible en **http://localhost:5173**
 |---------|-----------|-----|
 | `admin` | `admin1234` | Administrador |
 
-> Cambiá la contraseña del admin en producción.
+> Cambia la contraseña del admin en producción.
 
 ---
 
@@ -140,13 +140,13 @@ La app queda disponible en **http://localhost:5173**
 - Registro e inicio de sesión con JWT
 - Las predicciones se bloquean automáticamente cuando comienza el partido
 - Se puede modificar la predicción hasta el inicio del partido
-- Vista de todos los partidos con estado (Abierto / En curso / Finalizado)
+- Vista de todos los partidos con estado (sin resultado / con resultado)
 - Tabla de posiciones con desempate por exactos y parciales
 
 ### Administrador
 - Panel dedicado con estadísticas del torneo
-- Crear enfrentamientos con equipo local, visitante, fase y fecha/hora
 - Cargar y corregir resultados (el sistema recalcula puntos automáticamente)
+- Ver predicciones de todos los usuarios por partido (solo lectura)
 - Eliminar partidos sin resultado
 
 ---

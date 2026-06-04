@@ -4,8 +4,7 @@ backend/__pycache__/
 backend/**/__pycache__/
 backend/**/*.pyc
 backend/.env
-backend/alembic/versions/*.py
-!backend/alembic/versions/.gitkeep
+# Mantener migraciones en el repo (necesarias en prod y otros equipos)
 
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/

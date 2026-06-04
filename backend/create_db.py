@@ -15,7 +15,7 @@ try:
 except Exception as e:
     print(f"ERROR al conectar a PostgreSQL: {e}")
     print()
-    print("Asegurate de que:")
+    print("Asegúrate de que:")
     print("  1. PostgreSQL está corriendo en localhost:5432")
     print("  2. El usuario 'postgres' existe con contraseña 'postgres'")
     print("     (o edita el archivo .env y este script con tus credenciales reales)")

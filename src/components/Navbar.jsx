@@ -13,6 +13,8 @@ export default function Navbar() {
     navigate('/login')
   }
 
+  if (!user) return null
+
   return (
     <nav style={{ background: '#000000', borderBottom: '1px solid #1a1a1a' }}>
       <div className="max-w-6xl mx-auto px-5 py-4 grid grid-cols-3 items-center">
@@ -45,15 +47,14 @@ export default function Navbar() {
                 className={({ isActive }) => 'text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ' + (isActive ? 'text-teal-300' : 'text-teal-500/50 hover:text-teal-400')}
                 style={({ isActive }) => isActive ? { background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.2)' } : {}}
               >
-                Admin
+                Administración
               </NavLink>
             )}
             <div className="flex items-center gap-3 pl-4" style={{ borderLeft: '1px solid #1e1e1e' }}>
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-white/60 font-semibold leading-none">{user.username}</p>
-                {user.is_admin && (
-                  <p className="text-[10px] text-teal-500 font-bold mt-0.5 uppercase tracking-widest">Admin</p>
-                )}
+                <p className={`text-xs font-semibold leading-none ${user.is_admin ? 'text-teal-400' : 'text-white/60'}`}>
+                  {user.username}
+                </p>
               </div>
               <button
                 onClick={handleLogout}

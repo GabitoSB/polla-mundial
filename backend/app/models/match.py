@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -25,5 +25,11 @@ class Match(Base):
     # Real result — NULL while the match has not been played yet
     home_score = Column(Integer, nullable=True)
     away_score = Column(Integer, nullable=True)
+
+    # For knockout matches that end in a draw (penalties): name of the team that advances
+    penalty_winner = Column(String(100), nullable=True)
+
+    # For knockout matches: whether the match went to extra time (True/False, None = not set)
+    has_extra_time = Column(Boolean, nullable=True)
 
     predictions = relationship("Prediction", back_populates="match")

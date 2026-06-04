@@ -12,6 +12,8 @@ class MatchResponse(BaseModel):
     start_time: datetime
     home_score: int | None
     away_score: int | None
+    penalty_winner: str | None
+    has_extra_time: bool | None
 
     model_config = {"from_attributes": True}
 
@@ -27,11 +29,8 @@ class MatchCreate(BaseModel):
 class MatchResultUpdate(BaseModel):
     home_score: int
     away_score: int
-
-
-class MatchTeamsUpdate(BaseModel):
-    home_team: str
-    away_team: str
+    penalty_winner: str | None = None
+    has_extra_time: bool | None = None
 
 
 class MatchScheduleUpdate(BaseModel):

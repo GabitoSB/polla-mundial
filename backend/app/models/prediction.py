@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -17,6 +17,12 @@ class Prediction(Base):
     # What the user predicted
     predicted_home = Column(Integer, nullable=False)
     predicted_away = Column(Integer, nullable=False)
+
+    # For knockout matches: predicted winner on penalties (only relevant when predicted score is a draw)
+    predicted_penalty_winner = Column(String(100), nullable=True)
+
+    # For knockout matches: whether the user predicts extra time (True) or not (False)
+    predicted_extra_time = Column(Boolean, nullable=True)
 
     # Points awarded after the match result is entered (NULL = not yet scored)
     points = Column(Integer, nullable=True)

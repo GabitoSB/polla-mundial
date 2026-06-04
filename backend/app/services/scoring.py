@@ -1,17 +1,23 @@
 """
 Scoring logic for the Mundial Polla.
 
-Points per match:
+Base points per match (all phases):
   5 pts  — exact result   (predicted_home == real_home AND predicted_away == real_away)
   3 pts  — correct winner / draw  (sign of goal difference matches)
   0 pts  — anything else
 
-Tiebreaker stats stored on User (pre-computed):
-  1. total_points       — sum of all points
-  2. exact_results      — count of 5-pt predictions
-  3. partial_score_hits — count of predictions where at least one team's
-                          goals were guessed correctly (only for 3-pt results)
-                          e.g. predict 2-1, real 2-0  → home goals match → hit
+Knockout bonus (awarded on top of base points when outcome direction is correct):
+  Dieciseisavos  : +1 pt
+  Octavos de Final: +2 pts
+  Cuartos de Final: +3 pts
+  Semifinal       : +4 pts
+  Tercer Puesto   : +3 pts
+  Final           : +5 pts
+
+  For a drawn knockout result (decided by penalties):
+    bonus is earned ONLY if the user also predicted the correct penalty_winner.
+  For a non-drawn knockout result:
+    bonus is earned whenever the user got the correct winner (partial or exact).
 """
 from __future__ import annotations
 
@@ -22,8 +28,17 @@ from app.models.prediction import Prediction
 from app.models.user import User
 
 
+# ── Knockout bonus map ────────────────────────────────────────────────────────
+KNOCKOUT_BONUS: dict[str, int] = {
+    "Dieciseisavos":   1,
+    "Octavos de Final": 2,
+    "Cuartos de Final": 3,
+    "Semifinal":        4,
+    "Tercer Puesto":    3,
+    "Final":            5,
+}
+
 # ── Bracket propagation maps ──────────────────────────────────────────────────
-# Maps source match_number → (target match_number, slot) for the winner.
 _WINNER_SLOT: dict[int, tuple[int, str]] = {
     # Dieciseisavos → Octavos
     73: (90, "home"), 74: (89, "home"), 75: (90, "away"), 76: (91, "home"),
@@ -39,7 +54,6 @@ _WINNER_SLOT: dict[int, tuple[int, str]] = {
     101: (104, "home"), 102: (104, "away"),
 }
 
-# Loser of each semi goes to the 3rd-place match (P103).
 _LOSER_SLOT: dict[int, tuple[int, str]] = {
     101: (103, "home"),
     102: (103, "away"),
@@ -61,15 +75,39 @@ def score_prediction(
     predicted_away: int,
     real_home: int,
     real_away: int,
+    predicted_penalty_winner: str | None = None,
+    real_penalty_winner: str | None = None,
+    predicted_extra_time: bool | None = None,
+    real_extra_time: bool | None = None,
+    round_name: str | None = None,
 ) -> int:
-    """Returns the points earned for a single prediction."""
+    """Returns the total points earned for a single prediction (base + bonuses)."""
+    # ── Base score ────────────────────────────────────────────────────────────
     if predicted_home == real_home and predicted_away == real_away:
-        return 5
+        base = 5
+    elif _sign(predicted_home - predicted_away) == _sign(real_home - real_away):
+        base = 3
+    else:
+        return 0  # wrong outcome → no bonuses possible
 
-    if _sign(predicted_home - predicted_away) == _sign(real_home - real_away):
-        return 3
+    # ── Knockout round bonus ──────────────────────────────────────────────────
+    bonus = 0
+    if round_name in KNOCKOUT_BONUS:
+        round_bonus = KNOCKOUT_BONUS[round_name]
+        if real_home != real_away:
+            bonus = round_bonus
+        else:
+            # Draw decided by penalties: bonus only if correct penalty winner predicted
+            if real_penalty_winner and predicted_penalty_winner == real_penalty_winner:
+                bonus = round_bonus
 
-    return 0
+    # ── Extra time bonus (+2 pts for all knockout matches) ────────────────────
+    extra_time_bonus = 0
+    if round_name in KNOCKOUT_BONUS and real_extra_time is not None and predicted_extra_time is not None:
+        if predicted_extra_time == real_extra_time:
+            extra_time_bonus = 2
+
+    return base + bonus + extra_time_bonus
 
 
 # ── Main service function ─────────────────────────────────────────────────────
@@ -79,12 +117,9 @@ def calculate_match_points(db: Session, match: Match) -> None:
     Called after an admin sets (or corrects) the real score of a match.
 
     1. Score every prediction for this match and persist `points`.
-    2. Recompute each affected user's aggregate stats from scratch so that
-       a result correction is handled correctly.
-    3. Auto-propagate bracket: update the next round's match with the winner's
-       team name (and loser for semi-finals → 3rd place match).
-    4. For group stage matches, if the entire group is now finished, auto-fill
-       the Dieciseisavos teams based on computed standings.
+    2. Recompute each affected user's aggregate stats from scratch.
+    3. Auto-propagate bracket (winner into next round's match).
+    4. For group stage matches, auto-fill Dieciseisavos teams when group is done.
     """
     if match.home_score is None or match.away_score is None:
         return
@@ -101,19 +136,21 @@ def calculate_match_points(db: Session, match: Match) -> None:
             pred.predicted_away,
             match.home_score,
             match.away_score,
+            predicted_penalty_winner=pred.predicted_penalty_winner,
+            real_penalty_winner=match.penalty_winner,
+            predicted_extra_time=pred.predicted_extra_time,
+            real_extra_time=match.has_extra_time,
+            round_name=match.round_name,
         )
         affected_user_ids.add(pred.user_id)
 
-    # Flush prediction.points to DB so _recompute_user_stats reads updated values
     db.flush()
 
     for user_id in affected_user_ids:
         _recompute_user_stats(db, user_id)
 
-    # Bracket propagation for knockout matches
     _propagate_bracket(db, match)
 
-    # Group standings propagation for group-stage matches
     if match.round_name and match.round_name.startswith("Grupo "):
         _propagate_group_results(db, match.round_name)
 
@@ -124,11 +161,9 @@ def calculate_match_points(db: Session, match: Match) -> None:
 
 def _propagate_bracket(db: Session, match: Match) -> None:
     """
-    After a knockout match result is saved, write the winner (and loser for
-    semis) into the corresponding slot of the next round's match.
-    Draws are skipped — they can't happen in knockout (extra time/penalties
-    produce a winner before this point in the real tournament, and the admin
-    enters the final score including ET/PKs).
+    After a knockout match result is saved, write the winner (and loser for semis)
+    into the next round's match slot.
+    Draws are resolved via penalty_winner.
     """
     mn = match.match_number
     if mn is None or match.home_score is None or match.away_score is None:
@@ -138,8 +173,12 @@ def _propagate_bracket(db: Session, match: Match) -> None:
         winner, loser = match.home_team, match.away_team
     elif match.away_score > match.home_score:
         winner, loser = match.away_team, match.home_team
+    elif match.penalty_winner:
+        # Draw in knockout: penalty_winner advances
+        winner = match.penalty_winner
+        loser = match.away_team if match.penalty_winner == match.home_team else match.home_team
     else:
-        return  # draw — no propagation for group stage via this path
+        return  # draw with no penalty_winner set yet
 
     if mn in _WINNER_SLOT:
         target_num, slot = _WINNER_SLOT[mn]
@@ -164,18 +203,16 @@ def _propagate_bracket(db: Session, match: Match) -> None:
 
 def _propagate_group_results(db: Session, group_name: str) -> None:
     """
-    Once every match in a group has a result, compute the standings and update
-    any Dieciseisavos match whose home_team / away_team contains a placeholder
-    like '1° Grupo A' or '2º Grupo A' with the real team names.
+    Once every match in a group has a result, compute standings and update
+    Dieciseisavos placeholder team names.
     """
     group_matches = db.query(Match).filter(Match.round_name == group_name).all()
     if not group_matches:
         return
 
     if not all(m.home_score is not None and m.away_score is not None for m in group_matches):
-        return  # group not fully played yet
+        return
 
-    # Accumulate stats per team
     teams: dict[str, dict] = {}
     for m in group_matches:
         for team, gf, ga in [
@@ -193,8 +230,7 @@ def _propagate_group_results(db: Session, group_name: str) -> None:
         key=lambda x: (-x[1]["pts"], -(x[1]["gf"] - x[1]["ga"]), -x[1]["gf"], x[0]),
     )
 
-    gl = group_name.split()[-1]  # "Grupo A" → "A"
-    # Accept both '°' and 'º' variants that may have been seeded
+    gl = group_name.split()[-1]
     replacements: dict[str, str] = {}
     if len(sorted_teams) > 0:
         replacements[f"1° Grupo {gl}"] = sorted_teams[0][0]
@@ -224,8 +260,9 @@ def _propagate_group_results(db: Session, group_name: str) -> None:
 def _recompute_user_stats(db: Session, user_id: int) -> None:
     """
     Recalculates total_points, exact_results and partial_score_hits for a user
-    by scanning ALL their scored predictions (points IS NOT NULL).
-    Recalculating from scratch handles admin result corrections gracefully.
+    by scanning ALL their scored predictions.
+    exact_results and partial_score_hits are based on the base score (ignoring bonus),
+    so the tiebreaker logic is fair regardless of which rounds were played.
     """
     user = db.get(User, user_id)
     if user is None:
@@ -247,17 +284,20 @@ def _recompute_user_stats(db: Session, user_id: int) -> None:
     for pred in scored_predictions:
         total_points += pred.points
 
-        if pred.points == 5:
+        match = db.get(Match, pred.match_id)
+        if not match or match.home_score is None or match.away_score is None:
+            continue
+
+        # Tiebreaker 2: exact score (base 5 pts, regardless of bonus)
+        if pred.predicted_home == match.home_score and pred.predicted_away == match.away_score:
             exact_results += 1
 
-        elif pred.points == 3:
-            # Tiebreaker 3: at least one team's goals guessed correctly
-            match = db.get(Match, pred.match_id)
-            if match and match.home_score is not None and match.away_score is not None:
-                home_hit = pred.predicted_home == match.home_score
-                away_hit = pred.predicted_away == match.away_score
-                if home_hit or away_hit:
-                    partial_score_hits += 1
+        # Tiebreaker 3: correct winner/draw but not exact score
+        elif _sign(pred.predicted_home - pred.predicted_away) == _sign(match.home_score - match.away_score):
+            home_hit = pred.predicted_home == match.home_score
+            away_hit = pred.predicted_away == match.away_score
+            if home_hit or away_hit:
+                partial_score_hits += 1
 
     user.total_points = total_points
     user.exact_results = exact_results

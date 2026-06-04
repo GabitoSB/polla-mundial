@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import TeamSelect from '../components/TeamSelect'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
-import { createMatch, deleteMatch, getMatches, updateResult, updateSchedule, updateTeams } from '../api/matches'
+import { deleteMatch, getMatchPredictions, getMatches, updateResult, updateSchedule } from '../api/matches'
+import BracketDiagram from '../components/BracketDiagram'
 
 const isoOf = (name) => MUNDIAL_COUNTRIES.find((c) => c.name === name)?.iso ?? null
 
@@ -38,23 +38,23 @@ const phaseIndex = (r) => {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (dt) =>
-  new Date(dt).toLocaleString('es-AR', {
+  new Date(dt).toLocaleString('es-MX', {
     weekday: 'short', day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   })
 
 function matchStatus(m) {
-  const now = new Date()
-  const start = new Date(m.start_time)
-  if (m.home_score !== null) return 'finished'
-  if (now >= start) return 'locked'
-  return 'open'
+  return m.home_score != null ? 'finished' : 'open'
 }
 
 const STATUS_LABEL = {
-  open:     { label: 'Abierto',    cls: 'bg-green-500/15 text-green-400 border border-green-500/20' },
-  locked:   { label: 'En curso',   cls: 'bg-orange-500/15 text-orange-400 border border-orange-500/20' },
-  finished: { label: 'Finalizado', cls: 'bg-white/5 text-white/30 border border-white/8' },
+  open:     { label: 'Sin resultado', cls: 'bg-amber-500/15 text-amber-300 border border-amber-500/25' },
+  finished: { label: 'Con resultado', cls: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' },
+}
+
+const ROW_STYLE = {
+  open:     { border: 'border-l-amber-500/70',   bg: 'rgba(251,191,36,0.04)' },
+  finished: { border: 'border-l-emerald-500/80', bg: 'rgba(16,185,129,0.06)' },
 }
 
 /** Returns true if the team name is a TBD placeholder (bracket reference) */
@@ -78,83 +78,43 @@ function TabBtn({ active, onClick, children }) {
   )
 }
 
-function StatCard({ value, label, color = 'blue' }) {
-  const colors = {
-    blue:   'from-blue-500 to-blue-700',
-    green:  'from-green-500 to-green-700',
-    orange: 'from-orange-400 to-orange-600',
-    gray:   'from-gray-400 to-gray-600',
-  }
+function FilterSelect({ label, value, onChange, options }) {
   return (
-    <div className={`bg-gradient-to-br ${colors[color]} rounded-2xl p-4 text-white`}>
-      <p className="text-3xl font-black">{value}</p>
-      <p className="text-xs font-medium opacity-80 mt-1 uppercase tracking-wide">{label}</p>
+    <div className="flex flex-col gap-1 min-w-[10rem]">
+      <label className="text-[10px] font-semibold text-white/25 uppercase tracking-widest">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-sm font-medium text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+        style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', colorScheme: 'dark' }}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
     </div>
   )
 }
 
-// ── Inline team editor ────────────────────────────────────────────────────────
-
-function TeamEditRow({ match, onSaved }) {
-  const [editing, setEditing] = useState(false)
-  const [homeTeam, setHomeTeam] = useState(match.home_team)
-  const [awayTeam, setAwayTeam] = useState(match.away_team)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState(null)
-
-  const handleSave = async () => {
-    if (!homeTeam || !awayTeam) return
-    setSaving(true)
-    try {
-      await updateTeams(match.id, { home_team: homeTeam, away_team: awayTeam })
-      setMsg('ok')
-      setTimeout(() => { setMsg(null); setEditing(false) }, 2000)
-      onSaved()
-    } catch {
-      setMsg('error')
-    } finally {
-      setSaving(false)
-    }
+function StatCard({ value, label, color = 'blue' }) {
+  const styles = {
+    blue:  { bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.25)',  text: 'text-blue-400' },
+    amber: { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  text: 'text-amber-400' },
+    green: { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  text: 'text-emerald-400' },
+    orange: { bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.25)', text: 'text-orange-400' },
+    gray:  { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', text: 'text-white/50' },
   }
-
-  if (!editing) {
-    return (
-      <button
-        onClick={() => { setHomeTeam(match.home_team); setAwayTeam(match.away_team); setEditing(true) }}
-        className="text-xs text-teal-500 hover:text-teal-300 font-semibold ml-1"
-        title="Editar equipos"
-      >
-        ✏️
-      </button>
-    )
-  }
+  const style = styles[color] ?? styles.blue
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl p-3"
-      style={{ background: 'rgba(0,180,150,0.07)', border: '1px solid rgba(0,180,150,0.15)' }}>
-      <div className="flex-1 min-w-[140px]">
-        <TeamSelect value={homeTeam} onChange={setHomeTeam} placeholder="Local" exclude={awayTeam} />
-      </div>
-      <span className="text-white/30 font-bold text-sm">VS</span>
-      <div className="flex-1 min-w-[140px]">
-        <TeamSelect value={awayTeam} onChange={setAwayTeam} placeholder="Visitante" exclude={homeTeam} />
-      </div>
-      <button
-        onClick={handleSave}
-        disabled={saving || !homeTeam || !awayTeam}
-        className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-30"
-        style={{ background: 'linear-gradient(135deg,#00c9a7,#0057ff)' }}
-      >
-        {saving ? '…' : 'Guardar'}
-      </button>
-      <button
-        onClick={() => setEditing(false)}
-        className="text-xs text-white/30 hover:text-white/60 px-2 py-1.5 rounded-lg transition-colors"
-      >
-        Cancelar
-      </button>
-      {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓ Actualizado</span>}
-      {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+    <div
+      className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+      style={{ background: style.bg, border: `1px solid ${style.border}` }}
+    >
+      <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">{label}</span>
+      <span className={`text-lg font-black leading-none ${style.text}`}>{value}</span>
     </div>
   )
 }
@@ -229,131 +189,157 @@ function DateEditRow({ match, onSaved }) {
   )
 }
 
-// ── Create match tab ──────────────────────────────────────────────────────────
+// ── Match list tab ────────────────────────────────────────────────────────────
 
-function CreateMatchTab({ onCreated }) {
-  const empty = { match_number: '', home_team: '', away_team: '', round_name: '', start_time: '' }
-  const [form, setForm] = useState(empty)
-  const [creating, setCreating] = useState(false)
+const KNOCKOUT_ROUND_NAMES = new Set([
+  'Dieciseisavos', 'Octavos de Final', 'Cuartos de Final',
+  'Semifinal', 'Tercer Puesto', 'Final',
+])
+
+function fmtExtraTime(v) {
+  if (v === true) return 'Sí'
+  if (v === false) return 'No'
+  return '—'
+}
+
+function formatPredictionsError(err) {
+  const status = err.response?.status
+  const detail = err.response?.data?.detail
+  const msg = typeof detail === 'string' ? detail : null
+  if (status === 404 && msg === 'Not Found') {
+    return 'No se pudo cargar: el servidor no tiene esta función actualizada.'
+  }
+  if (msg) return msg
+  return 'No se pudieron cargar las predicciones. Intenta de nuevo.'
+}
+
+/** Panel de solo lectura: predicciones de todos los usuarios para un partido */
+function MatchPredictionsPanel({ match, isKnockout }) {
+  const [open, setOpen] = useState(false)
+  const [list, setList] = useState([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(false)
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const hasResult = match.home_score != null && match.away_score != null
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.home_team || !form.away_team) {
-      setError('Seleccioná ambos equipos')
+  const toggle = async () => {
+    if (open) {
+      setOpen(false)
       return
     }
-    setCreating(true)
+    setOpen(true)
+    setLoading(true)
     setError(null)
     try {
-      await createMatch({
-        ...form,
-        match_number: form.match_number ? Number(form.match_number) : null,
-        start_time: new Date(form.start_time).toISOString(),
+      const { data } = await getMatchPredictions(match.id)
+      const sorted = [...data].sort((a, b) => {
+        if (hasResult) return (b.points ?? -1) - (a.points ?? -1)
+        return a.username.localeCompare(b.username)
       })
-      setForm(empty)
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
-      onCreated()
+      setList(sorted)
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Error al crear partido')
+      setError(formatPredictionsError(err))
+      setList([])
     } finally {
-      setCreating(false)
+      setLoading(false)
     }
   }
 
-  const inputCls = "w-full rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all"
-  const inputStyle = { background: '#1a1a1a', border: '1px solid #2a2a2a' }
-
   return (
-    <div className="rounded-2xl p-6" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-      <h2 className="text-lg font-bold text-white mb-1">Nuevo enfrentamiento</h2>
-      <p className="text-sm text-white/30 mb-6">
-        Las predicciones se bloquean automáticamente en la fecha/hora indicada.
-      </p>
+    <div className="mt-3 w-full">
+      <button
+        type="button"
+        onClick={toggle}
+        className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: open ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
+          border: open ? '1px solid rgba(59,130,246,0.35)' : '1px solid #2a2a2a',
+          color: open ? '#93c5fd' : 'rgba(255,255,255,0.45)',
+        }}
+      >
+        {open ? '▾ Ocultar predicciones' : '▸ Ver predicciones de usuarios'}
+      </button>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <label className="block text-xs font-semibold text-white/30 mb-1.5 uppercase tracking-widest">
-              Equipo Local 🏠
-            </label>
-            <TeamSelect value={form.home_team} onChange={(v) => set('home_team', v)} placeholder="Seleccionar local" exclude={form.away_team} />
-          </div>
-          <div className="mt-5 flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-white/30 font-bold text-sm"
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
-            VS
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-semibold text-white/30 mb-1.5 uppercase tracking-widest">
-              Equipo Visitante ✈️
-            </label>
-            <TeamSelect value={form.away_team} onChange={(v) => set('away_team', v)} placeholder="Seleccionar visitante" exclude={form.home_team} />
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-white/30 mb-1.5 uppercase tracking-widest">Fase / Grupo</label>
-            <input value={form.round_name} onChange={(e) => set('round_name', e.target.value)} className={inputCls} style={inputStyle} placeholder="ej: Grupo A, Final…" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-white/30 mb-1.5 uppercase tracking-widest">N° de partido</label>
-            <input type="number" min="1" max="104" value={form.match_number} onChange={(e) => set('match_number', e.target.value)} className={inputCls} style={inputStyle} placeholder="ej: 1" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-white/30 mb-1.5 uppercase tracking-widest">Fecha y hora ⏰</label>
-            <input required type="datetime-local" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} className={inputCls} style={{ ...inputStyle, colorScheme: 'dark' }} />
-          </div>
-        </div>
-
-        {form.home_team && form.away_team && form.start_time && (
-          <div className="rounded-xl p-4 flex items-center justify-between"
-            style={{ background: 'rgba(0,180,150,0.07)', border: '1px solid rgba(0,180,150,0.15)' }}>
-            <div className="text-sm">
-              <span className="font-bold text-white/80">{form.home_team}</span>
-              <span className="mx-3 text-teal-500 font-bold">VS</span>
-              <span className="font-bold text-white/80">{form.away_team}</span>
-              {form.round_name && <span className="ml-2 text-xs text-teal-400">· {form.round_name}</span>}
+      {open && (
+        <div
+          className="mt-2 rounded-xl overflow-hidden"
+          style={{ background: '#0d0d0d', border: '1px solid #252525' }}
+        >
+          {loading && (
+            <p className="text-xs text-white/30 text-center py-4">Cargando…</p>
+          )}
+          {error && (
+            <p className="text-xs text-red-400 text-center py-4">{error}</p>
+          )}
+          {!loading && !error && list.length === 0 && (
+            <p className="text-xs text-white/40 text-center py-4">No hay predicciones aún</p>
+          )}
+          {!loading && !error && list.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-white/30 uppercase tracking-wider" style={{ background: '#161616' }}>
+                    <th className="text-left px-3 py-2 font-semibold">Jugador</th>
+                    <th className="text-center px-3 py-2 font-semibold">Marcador</th>
+                    {isKnockout && (
+                      <>
+                        <th className="text-center px-3 py-2 font-semibold">Penales</th>
+                        <th className="text-center px-3 py-2 font-semibold">Alargue</th>
+                      </>
+                    )}
+                    {hasResult && <th className="text-center px-3 py-2 font-semibold">Pts</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((p, i) => (
+                    <tr
+                      key={p.id}
+                      style={{
+                        borderTop: '1px solid #1a1a1a',
+                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <td className="px-3 py-2 font-medium text-white/70">{p.username}</td>
+                      <td className="px-3 py-2 text-center font-bold text-white/80">
+                        {p.predicted_home}–{p.predicted_away}
+                      </td>
+                      {isKnockout && (
+                        <>
+                          <td className="px-3 py-2 text-center text-white/50">
+                            {p.predicted_penalty_winner ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 text-center text-white/50">
+                            {fmtExtraTime(p.predicted_extra_time)}
+                          </td>
+                        </>
+                      )}
+                      {hasResult && (
+                        <td className="px-3 py-2 text-center font-bold text-teal-400">
+                          {p.points ?? 0}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <span className="text-xs text-white/30">{fmt(form.start_time)}</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="text-red-400 text-sm px-4 py-3 rounded-xl" style={{ background: 'rgba(127,0,0,0.2)', border: '1px solid rgba(200,50,50,0.2)' }}>
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="text-green-400 text-sm px-4 py-3 rounded-xl font-medium" style={{ background: 'rgba(0,150,80,0.15)', border: '1px solid rgba(0,200,100,0.2)' }}>
-            ✓ Partido creado correctamente
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <button type="submit" disabled={creating}
-            className="text-white font-semibold px-8 py-2.5 rounded-xl transition-all flex items-center gap-2 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg,#00c9a7,#0057ff)', boxShadow: '0 2px 12px rgba(0,180,150,0.2)' }}>
-            {creating ? <><span className="animate-spin">⏳</span> Creando…</> : <>+ Agregar partido</>}
-          </button>
+          )}
+          <p className="text-[10px] text-white/20 text-center py-2 border-t border-white/5">
+            Solo lectura · supervisión
+          </p>
         </div>
-      </form>
+      )}
     </div>
   )
 }
 
-// ── Match list tab ────────────────────────────────────────────────────────────
-
-function MatchListTab({ matches, onRefresh }) {
+function useMatchResultEditor(onRefresh) {
   const [deleting, setDeleting] = useState(null)
   const [results, setResults] = useState({})
+  const [penaltyWinners, setPenaltyWinners] = useState({})
+  const [extraTimeMap, setExtraTimeMap] = useState({})
   const [saving, setSaving] = useState({})
   const [saveMsg, setSaveMsg] = useState({})
-  const [filter, setFilter] = useState('all')
 
   const setResult = (id, field, val) =>
     setResults((r) => ({ ...r, [id]: { ...(r[id] ?? {}), [field]: val } }))
@@ -378,9 +364,23 @@ function MatchListTab({ matches, onRefresh }) {
     if (home === '' || home === null || home === undefined) return
     if (away === '' || away === null || away === undefined) return
 
+    const isKnockoutRound = KNOCKOUT_ROUND_NAMES.has(m.round_name)
+    const isDraw = Number(home) === Number(away)
+    const penaltyWinner = (isKnockoutRound && isDraw)
+      ? (penaltyWinners[m.id] ?? m.penalty_winner ?? null)
+      : null
+    const hasExtraTime = isKnockoutRound
+      ? (extraTimeMap[m.id] !== undefined ? extraTimeMap[m.id] : m.has_extra_time ?? null)
+      : null
+
     setSaving((s) => ({ ...s, [m.id]: true }))
     try {
-      await updateResult(m.id, { home_score: Number(home), away_score: Number(away) })
+      await updateResult(m.id, {
+        home_score: Number(home),
+        away_score: Number(away),
+        penalty_winner: penaltyWinner,
+        has_extra_time: hasExtraTime,
+      })
       setSaveMsg((s) => ({ ...s, [m.id]: 'ok' }))
       setTimeout(() => setSaveMsg((s) => ({ ...s, [m.id]: null })), 3000)
       onRefresh()
@@ -391,8 +391,202 @@ function MatchListTab({ matches, onRefresh }) {
     }
   }
 
-  const filtered = filter === 'all' ? matches
-    : matches.filter((m) => matchStatus(m) === filter)
+  return {
+    deleting,
+    results,
+    penaltyWinners,
+    extraTimeMap,
+    saving,
+    saveMsg,
+    setResult,
+    setPenaltyWinners,
+    setExtraTimeMap,
+    handleDelete,
+    handleSaveResult,
+  }
+}
+
+function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelete = true }) {
+  const {
+    deleting, results, penaltyWinners, extraTimeMap, saving, saveMsg,
+    setResult, setPenaltyWinners, setExtraTimeMap, handleDelete, handleSaveResult,
+  } = editor
+
+  const status = matchStatus(m)
+  const { label, cls } = STATUS_LABEL[status]
+  const r = results[m.id] ?? {}
+  const curHome = r.home !== undefined ? r.home : (m.home_score ?? '')
+  const curAway = r.away !== undefined ? r.away : (m.away_score ?? '')
+  const msg = saveMsg[m.id]
+  const isKnockoutRound = KNOCKOUT_ROUND_NAMES.has(m.round_name)
+  const isDraw = curHome !== '' && curAway !== '' && Number(curHome) === Number(curAway)
+  const showPenaltySelector = isKnockoutRound && isDraw && !isTBD(m.home_team) && !isTBD(m.away_team)
+  const curPenaltyWinner = penaltyWinners[m.id] !== undefined ? penaltyWinners[m.id] : (m.penalty_winner ?? null)
+  const curExtraTime = extraTimeMap[m.id] !== undefined ? extraTimeMap[m.id] : (m.has_extra_time ?? null)
+  const isFinished = status === 'finished'
+  const rowStyle = ROW_STYLE[status]
+  const inputCls = 'w-12 text-center rounded-lg px-2 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors'
+  const inputStyle = isFinished
+    ? { background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }
+    : { background: '#1a1a1a', border: '1px solid #2a2a2a' }
+
+  const scoreControls = (
+    <>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input type="number" min="0" value={curHome}
+          onChange={(e) => { setResult(m.id, 'home', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+          className={inputCls} style={inputStyle} placeholder="–" />
+        <span className="text-white/20 font-bold">–</span>
+        <input type="number" min="0" value={curAway}
+          onChange={(e) => { setResult(m.id, 'away', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+          className={inputCls} style={inputStyle} placeholder="–" />
+        <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id]}
+          className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
+          style={isFinished
+            ? { background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.35)' }
+            : { background: 'rgba(0,180,100,0.3)', border: '1px solid rgba(0,200,100,0.2)' }
+          }>
+          {saving[m.id] ? '…' : isFinished ? 'Corregir' : 'Guardar'}
+        </button>
+        {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
+        {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+      </div>
+
+      {isKnockoutRound && !isTBD(m.home_team) && !isTBD(m.away_team) && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
+          style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)' }}>
+          <span className="text-[10px] font-bold text-amber-400/60 uppercase tracking-wide">Alargue</span>
+          {[true, false].map((opt) => (
+            <button key={String(opt)} type="button"
+              onClick={() => setExtraTimeMap((p) => ({ ...p, [m.id]: p[m.id] === opt ? null : opt }))}
+              className="px-2 py-0.5 rounded text-[10px] font-bold transition-all"
+              style={{
+                background: curExtraTime === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
+                border: curExtraTime === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
+                color: curExtraTime === opt ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+              }}>
+              {opt ? 'Sí' : 'No'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showPenaltySelector && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
+          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">Penales</span>
+          {[m.home_team, m.away_team].map((team) => (
+            <button key={team} type="button"
+              onClick={() => setPenaltyWinners((p) => ({ ...p, [m.id]: p[m.id] === team ? null : team }))}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition-all"
+              style={{
+                background: curPenaltyWinner === team ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
+                border: curPenaltyWinner === team ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
+                color: curPenaltyWinner === team ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+              }}>
+              <FlagImg name={team} size={12} />
+              <span className="max-w-[4.5rem] truncate">{team}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+
+  if (compact) {
+    return (
+      <div
+        className={`rounded-xl border-l-4 p-3 ${rowStyle.border}`}
+        style={{ background: rowStyle.bg, borderColor: '#252525', borderLeftWidth: 4 }}
+      >
+        <div className="flex items-center justify-between gap-1 mb-2">
+          <span className="text-[10px] font-bold text-white/40">P{m.match_number}</span>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}`}>{label}</span>
+        </div>
+        <div className="space-y-1.5 mb-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {!isTBD(m.home_team) && <FlagImg name={m.home_team} size={14} />}
+            <span className={`text-xs font-semibold truncate ${isTBD(m.home_team) ? 'text-white/25 italic' : 'text-white/75'}`}>
+              {m.home_team}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {!isTBD(m.away_team) && <FlagImg name={m.away_team} size={14} />}
+            <span className={`text-xs font-semibold truncate ${isTBD(m.away_team) ? 'text-white/25 italic' : 'text-white/75'}`}>
+              {m.away_team}
+            </span>
+          </div>
+        </div>
+        <p className="text-[10px] text-white/25 mb-2">{fmt(m.start_time)}</p>
+        {scoreControls}
+        <MatchPredictionsPanel match={m} isKnockout={isKnockoutRound} />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={`border-l-4 px-5 py-4 ${rowStyle.border}`}
+      style={{ borderBottom: '1px solid #1a1a1a', background: rowStyle.bg }}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_2rem] gap-3 items-start">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {m.match_number && (
+              <span className="bg-white/8 text-white/40 text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                P{m.match_number}
+              </span>
+            )}
+            {!isTBD(m.home_team) && <FlagImg name={m.home_team} size={20} />}
+            <span className={`font-bold ${isTBD(m.home_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.home_team}</span>
+            <span className="text-xs font-bold text-white/20">VS</span>
+            {!isTBD(m.away_team) && <FlagImg name={m.away_team} size={20} />}
+            <span className={`font-bold ${isTBD(m.away_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.away_team}</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
+          </div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <p className="text-xs text-white/20">{fmt(m.start_time)}</p>
+            <DateEditRow match={m} onSaved={onRefresh} />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 lg:justify-self-end">{scoreControls}</div>
+
+        {showDelete && (
+          <div className="flex justify-center lg:justify-end pt-1">
+            {!isFinished ? (
+              <button type="button" onClick={() => handleDelete(m.id)} disabled={deleting === m.id}
+                className="text-red-500/50 hover:text-red-400 p-1.5 rounded-lg transition-colors text-xs disabled:opacity-40"
+                title="Eliminar partido">
+                {deleting === m.id ? '…' : '🗑️'}
+              </button>
+            ) : (
+              <span className="w-7" aria-hidden />
+            )}
+          </div>
+        )}
+      </div>
+
+      <MatchPredictionsPanel match={m} isKnockout={isKnockoutRound} />
+    </div>
+  )
+}
+
+function MatchListTab({ matches, onRefresh }) {
+  const editor = useMatchResultEditor(onRefresh)
+  const [resultFilter, setResultFilter] = useState('all')
+  const [phaseFilter, setPhaseFilter] = useState('all')
+
+  const phaseOptions = useMemo(() => {
+    const names = [...new Set(matches.map((m) => m.round_name).filter(Boolean))]
+    return names.sort((a, b) => phaseIndex(a) - phaseIndex(b))
+  }, [matches])
+
+  const filtered = matches.filter((m) => {
+    if (resultFilter !== 'all' && matchStatus(m) !== resultFilter) return false
+    if (phaseFilter !== 'all' && m.round_name !== phaseFilter) return false
+    return true
+  })
 
   // Group by round_name, sorted by phase order
   const groups = filtered.reduce((acc, m) => {
@@ -407,19 +601,32 @@ function MatchListTab({ matches, onRefresh }) {
   return (
     <div className="space-y-4">
       {/* Filter bar */}
-      <div className="rounded-2xl px-4 py-3 flex flex-wrap gap-2 items-center" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-        <span className="text-xs font-semibold text-white/25 uppercase tracking-widest mr-2">Filtrar:</span>
-        {['all', 'open', 'locked', 'finished'].map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className="text-xs px-3 py-1 rounded-full font-semibold transition-all"
-            style={filter === f
-              ? { background: 'linear-gradient(135deg,#00c9a7,#0057ff)', color: '#fff' }
-              : { background: '#1e1e1e', color: 'rgba(255,255,255,0.35)' }
-            }>
-            {{ all: 'Todos', open: 'Abiertos', locked: 'En curso', finished: 'Finalizados' }[f]}
-          </button>
-        ))}
-        <span className="ml-auto text-xs text-white/20">{filtered.length} partido{filtered.length !== 1 ? 's' : ''}</span>
+      <div
+        className="rounded-2xl px-4 py-3 flex flex-wrap gap-4 items-end"
+        style={{ background: '#111111', border: '1px solid #1e1e1e' }}
+      >
+        <FilterSelect
+          label="Resultado"
+          value={resultFilter}
+          onChange={setResultFilter}
+          options={[
+            { value: 'all', label: 'Todos' },
+            { value: 'open', label: 'Sin resultado' },
+            { value: 'finished', label: 'Con resultado' },
+          ]}
+        />
+        <FilterSelect
+          label="Grupo / fase"
+          value={phaseFilter}
+          onChange={setPhaseFilter}
+          options={[
+            { value: 'all', label: 'Todas las fases' },
+            ...phaseOptions.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+        <span className="ml-auto text-xs text-white/30 pb-2">
+          {filtered.length} partido{filtered.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {filtered.length === 0 && (
@@ -439,65 +646,9 @@ function MatchListTab({ matches, onRefresh }) {
             </div>
 
             <div className="divide-y" style={{ borderColor: '#1a1a1a' }}>
-              {roundMatches.map((m) => {
-                const status = matchStatus(m)
-                const { label, cls } = STATUS_LABEL[status]
-                const r = results[m.id] ?? {}
-                const curHome = r.home !== undefined ? r.home : (m.home_score ?? '')
-                const curAway = r.away !== undefined ? r.away : (m.away_score ?? '')
-                const msg = saveMsg[m.id]
-                const isKnockout = m.match_number != null && m.match_number >= 73
-                const inputCls = "w-14 text-center rounded-lg px-2 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors"
-                const inputStyle = { background: '#1a1a1a', border: '1px solid #2a2a2a' }
-
-                return (
-                  <div key={m.id} className="px-5 py-4" style={{ borderBottomColor: '#1a1a1a' }}>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex-1 min-w-[200px]">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {m.match_number && (
-                            <span className="bg-white/8 text-white/40 text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-                              P{m.match_number}
-                            </span>
-                          )}
-                          {!isTBD(m.home_team) && <FlagImg name={m.home_team} size={20} />}
-                          <span className={`font-bold ${isTBD(m.home_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.home_team}</span>
-                          <span className="text-xs font-bold text-white/20">VS</span>
-                          {!isTBD(m.away_team) && <FlagImg name={m.away_team} size={20} />}
-                          <span className={`font-bold ${isTBD(m.away_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.away_team}</span>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
-                          {isKnockout && status !== 'finished' && <TeamEditRow match={m} onSaved={onRefresh} />}
-                        </div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <p className="text-xs text-white/20">{fmt(m.start_time)}</p>
-                          <DateEditRow match={m} onSaved={onRefresh} />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <input type="number" min="0" value={curHome} onChange={(e) => setResult(m.id, 'home', e.target.value)} className={inputCls} style={inputStyle} placeholder="–" />
-                        <span className="text-white/20 font-bold text-lg">–</span>
-                        <input type="number" min="0" value={curAway} onChange={(e) => setResult(m.id, 'away', e.target.value)} className={inputCls} style={inputStyle} placeholder="–" />
-                        <button onClick={() => handleSaveResult(m)} disabled={saving[m.id]}
-                          className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
-                          style={{ background: 'rgba(0,180,100,0.3)', border: '1px solid rgba(0,200,100,0.2)' }}>
-                          {saving[m.id] ? '…' : status === 'finished' ? 'Corregir' : 'Guardar'}
-                        </button>
-                        {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
-                        {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
-                      </div>
-
-                      {status !== 'finished' && (
-                        <button onClick={() => handleDelete(m.id)} disabled={deleting === m.id}
-                          className="text-red-500/50 hover:text-red-400 p-1.5 rounded-lg transition-colors text-xs disabled:opacity-40"
-                          title="Eliminar partido">
-                          {deleting === m.id ? '…' : '🗑️'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              {roundMatches.map((m) => (
+                <AdminMatchRow key={m.id} match={m} editor={editor} onRefresh={onRefresh} />
+              ))}
             </div>
           </div>
         )
@@ -509,78 +660,75 @@ function MatchListTab({ matches, onRefresh }) {
 // ── Bracket tab ───────────────────────────────────────────────────────────────
 
 function BracketTab({ matches, onRefresh }) {
-  const knockout = matches
-    .filter((m) => m.match_number != null && m.match_number >= 73)
-    .sort((a, b) => (a.match_number ?? 0) - (b.match_number ?? 0))
+  const editor = useMatchResultEditor(onRefresh)
+  const [selectedNum, setSelectedNum] = useState(null)
 
-  const sections = [
-    { label: 'Dieciseisavos de Final', from: 73, to: 88 },
-    { label: 'Octavos de Final', from: 89, to: 96 },
-    { label: 'Cuartos de Final', from: 97, to: 100 },
-    { label: 'Semifinales', from: 101, to: 102 },
-    { label: 'Tercer Puesto y Final', from: 103, to: 104 },
-  ]
+  const knockout = useMemo(
+    () => matches.filter((m) => m.match_number != null && m.match_number >= 73),
+    [matches],
+  )
+
+  const selected = useMemo(
+    () => knockout.find((m) => m.match_number === selectedNum) ?? null,
+    [knockout, selectedNum],
+  )
+
+  const handleSelect = (match) => {
+    setSelectedNum((n) => (n === match.match_number ? null : match.match_number))
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl p-4 text-sm text-amber-400"
-        style={{ background: 'rgba(180,120,0,0.1)', border: '1px solid rgba(180,120,0,0.2)' }}>
-        <p className="font-semibold mb-1">Actualización automática del bracket</p>
+    <div className="space-y-4">
+      <div
+        className="rounded-2xl p-4 text-sm"
+        style={{ background: 'rgba(180,120,0,0.1)', border: '1px solid rgba(180,120,0,0.2)' }}
+      >
+        <p className="font-semibold text-amber-400 mb-1">Cuadro eliminatorio</p>
         <p className="text-amber-400/70">
-          Al guardar el resultado de un partido eliminatorio, el sistema asigna
-          automáticamente al ganador en el siguiente partido del bracket.
-          Para Dieciseisavos, al completar todos los partidos de un grupo los clasificados se asignan solos.
-          Podés también editar manualmente con el botón ✏️.
+          Vista en árbol: el ganador avanza hacia el centro. Haz clic en un cruce para cargar marcador,
+          alargue, penales y ver predicciones.
         </p>
       </div>
 
-      {sections.map(({ label, from, to }) => {
-        const sectionMatches = knockout.filter((m) => m.match_number >= from && m.match_number <= to)
-        if (sectionMatches.length === 0) return null
+      <div
+        className="rounded-2xl p-4 md:p-6"
+        style={{ background: 'rgba(17,17,17,0.92)', border: '1px solid #1e1e1e' }}
+      >
+        <BracketDiagram
+          matches={knockout}
+          selectedMatchNum={selected?.match_number ?? null}
+          onSelectMatch={handleSelect}
+        />
+      </div>
 
-        return (
-          <div key={label} className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-            <div className="px-5 py-3" style={{ background: '#161616', borderBottom: '1px solid #1e1e1e' }}>
-              <span className="text-sm font-bold text-teal-400">{label}</span>
-            </div>
-            <div className="divide-y" style={{ borderColor: '#1a1a1a' }}>
-              {sectionMatches.map((m) => {
-                const status = matchStatus(m)
-                const { label: statusLabel, cls } = STATUS_LABEL[status]
-                const homeTBD = isTBD(m.home_team)
-                const awayTBD = isTBD(m.away_team)
-
-                return (
-                  <div key={m.id} className="px-5 py-4">
-                    <div className="flex items-start gap-3 flex-wrap">
-                      <span className="bg-white/8 text-white/40 text-xs font-bold px-2 py-1 rounded-full mt-0.5 flex-shrink-0">
-                        P{m.match_number}
-                      </span>
-                      <div className="flex-1 min-w-[240px]">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {!homeTBD && <FlagImg name={m.home_team} size={20} />}
-                          <span className={homeTBD ? 'text-white/25 text-xs italic' : 'text-sm font-bold text-white/70'}>{m.home_team}</span>
-                          <span className="text-xs text-white/20 font-bold">vs</span>
-                          {!awayTBD && <FlagImg name={m.away_team} size={20} />}
-                          <span className={awayTBD ? 'text-white/25 text-xs italic' : 'text-sm font-bold text-white/70'}>{m.away_team}</span>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{statusLabel}</span>
-                          {m.home_score !== null && (
-                            <span className="text-xs font-black text-white/60 px-2 py-0.5 rounded-lg" style={{ background: '#1e1e1e' }}>
-                              {m.home_score} – {m.away_score}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-white/20 mt-0.5">{fmt(m.start_time)}</p>
-                        {status !== 'finished' && <TeamEditRow match={m} onSaved={onRefresh} />}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+      {selected && (
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ background: '#111111', border: '1px solid rgba(45,212,191,0.35)' }}
+        >
+          <div
+            className="px-4 py-2 flex items-center justify-between gap-2"
+            style={{ background: '#161616', borderBottom: '1px solid #1e1e1e' }}
+          >
+            <span className="text-sm font-bold text-teal-400">
+              P{selected.match_number} · {selected.round_name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="text-xs text-white/40 hover:text-white/70 px-2 py-1"
+            >
+              Cerrar ✕
+            </button>
           </div>
-        )
-      })}
+          <AdminMatchRow
+            match={selected}
+            editor={editor}
+            onRefresh={onRefresh}
+            showDelete={false}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -588,7 +736,7 @@ function BracketTab({ matches, onRefresh }) {
 // ── Main AdminPage ────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const [tab, setTab] = useState('create')
+  const [tab, setTab] = useState('manage')
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const location = useLocation()
@@ -605,7 +753,6 @@ export default function AdminPage() {
 
   const total    = matches.length
   const open     = matches.filter((m) => matchStatus(m) === 'open').length
-  const locked   = matches.filter((m) => matchStatus(m) === 'locked').length
   const finished = matches.filter((m) => matchStatus(m) === 'finished').length
 
   // Count TBD knockout matches for bracket badge
@@ -613,20 +760,31 @@ export default function AdminPage() {
     (m) => m.match_number >= 73 && (isTBD(m.home_team) || isTBD(m.away_team)),
   ).length
 
+  const pageBg = {
+    backgroundImage: 'url(/stadium.png)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed',
+  }
+
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500" />
+      <div className="min-h-screen" style={pageBg}>
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500" />
+        </div>
       </div>
     )
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-screen" style={pageBg}>
+      <div className="min-h-screen" style={{ background: 'rgba(0,0,0,0.55)' }}>
+    <div className={`mx-auto px-4 py-6 space-y-6 ${tab === 'bracket' ? 'max-w-[min(100%,80rem)]' : 'max-w-4xl'}`}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black text-white">Panel de Administración</h1>
-          <p className="text-white/30 text-sm mt-0.5">Gestioná los partidos y resultados del torneo</p>
+          <p className="text-white/30 text-sm mt-0.5">Gestiona los partidos y resultados del torneo</p>
         </div>
         <button onClick={load}
           className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 px-4 py-2 rounded-xl transition-colors font-medium"
@@ -636,20 +794,16 @@ export default function AdminPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard value={total}    label="Total partidos" color="blue" />
-        <StatCard value={open}     label="Abiertos"       color="green" />
-        <StatCard value={locked}   label="En curso"       color="orange" />
-        <StatCard value={finished} label="Finalizados"    color="gray" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <StatCard value={total}    label="Total"         color="blue" />
+        <StatCard value={open}     label="Sin resultado" color="amber" />
+        <StatCard value={finished} label="Con resultado" color="green" />
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-2xl w-fit flex-wrap" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-        <TabBtn active={tab === 'create'} onClick={() => setTab('create')}>
-          ➕ Crear partido
-        </TabBtn>
         <TabBtn active={tab === 'manage'} onClick={() => setTab('manage')}>
-          📋 Gestionar {total > 0 && `(${total})`}
+          📋 Gestionar partidos {total > 0 && `(${total})`}
         </TabBtn>
         <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')}>
           🔗 Bracket eliminatorias
@@ -662,15 +816,14 @@ export default function AdminPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'create' && (
-        <CreateMatchTab onCreated={() => { load(); setTab('manage') }} />
-      )}
       {tab === 'manage' && (
         <MatchListTab matches={matches} onRefresh={load} />
       )}
       {tab === 'bracket' && (
         <BracketTab matches={matches} onRefresh={load} />
       )}
+    </div>
+      </div>
     </div>
   )
 }

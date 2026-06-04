@@ -5,7 +5,7 @@ from app.api.deps import get_current_admin, get_current_user
 from app.core.database import get_db
 from app.models.match import Match
 from app.models.user import User
-from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchTeamsUpdate
+from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchScheduleUpdate, MatchTeamsUpdate
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -52,6 +52,22 @@ def update_teams(
         raise HTTPException(status_code=404, detail="Partido no encontrado")
     match.home_team = payload.home_team
     match.away_team = payload.away_team
+    db.commit()
+    db.refresh(match)
+    return match
+
+
+@router.put("/{match_id}/schedule", response_model=MatchResponse)
+def update_schedule(
+    match_id: int,
+    payload: MatchScheduleUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    match = db.get(Match, match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    match.start_time = payload.start_time
     db.commit()
     db.refresh(match)
     return match

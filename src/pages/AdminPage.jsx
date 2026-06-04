@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import TeamSelect from '../components/TeamSelect'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
-import { createMatch, deleteMatch, getMatches, updateResult, updateTeams } from '../api/matches'
+import { createMatch, deleteMatch, getMatches, updateResult, updateSchedule, updateTeams } from '../api/matches'
 
 const isoOf = (name) => MUNDIAL_COUNTRIES.find((c) => c.name === name)?.iso ?? null
 
@@ -154,6 +154,76 @@ function TeamEditRow({ match, onSaved }) {
         Cancelar
       </button>
       {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓ Actualizado</span>}
+      {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+    </div>
+  )
+}
+
+// ── Inline date/time editor ───────────────────────────────────────────────────
+
+function DateEditRow({ match, onSaved }) {
+  const [editing, setEditing] = useState(false)
+  const toLocalInput = (iso) => {
+    const d = new Date(iso)
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+  const [value, setValue] = useState(toLocalInput(match.start_time))
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  const handleSave = async () => {
+    if (!value) return
+    setSaving(true)
+    try {
+      await updateSchedule(match.id, { start_time: new Date(value).toISOString() })
+      setMsg('ok')
+      setTimeout(() => { setMsg(null); setEditing(false) }, 2000)
+      onSaved()
+    } catch {
+      setMsg('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setValue(toLocalInput(match.start_time)); setEditing(true) }}
+        className="text-xs text-white/30 hover:text-white/60 transition-colors ml-1"
+        title="Editar fecha y hora"
+      >
+        🕐
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl p-3"
+      style={{ background: 'rgba(255,180,0,0.06)', border: '1px solid rgba(255,180,0,0.15)' }}>
+      <input
+        type="datetime-local"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
+        style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', colorScheme: 'dark' }}
+      />
+      <button
+        onClick={handleSave}
+        disabled={saving || !value}
+        className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-30"
+        style={{ background: 'rgba(200,150,0,0.4)', border: '1px solid rgba(255,180,0,0.2)' }}
+      >
+        {saving ? '…' : 'Guardar'}
+      </button>
+      <button
+        onClick={() => setEditing(false)}
+        className="text-xs text-white/30 hover:text-white/60 px-2 py-1.5 rounded-lg transition-colors"
+      >
+        Cancelar
+      </button>
+      {msg === 'ok' && <span className="text-yellow-400 text-xs font-semibold">✓ Actualizado</span>}
       {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
     </div>
   )
@@ -398,7 +468,10 @@ function MatchListTab({ matches, onRefresh }) {
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
                           {isKnockout && status !== 'finished' && <TeamEditRow match={m} onSaved={onRefresh} />}
                         </div>
-                        <p className="text-xs text-white/20 mt-0.5">{fmt(m.start_time)}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <p className="text-xs text-white/20">{fmt(m.start_time)}</p>
+                          <DateEditRow match={m} onSaved={onRefresh} />
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2">

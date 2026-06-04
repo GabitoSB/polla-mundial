@@ -66,9 +66,9 @@ function ScoreInput({ value, onChange, disabled }) {
 }
 
 function pointsBadge(points) {
-  if (points === 5) return <span className="bg-green-500/20 text-green-400 border border-green-500/30 text-xs font-bold px-2 py-1 rounded-full">+5 exacto</span>
-  if (points === 3) return <span className="bg-teal-500/20 text-teal-400 border border-teal-500/30 text-xs font-bold px-2 py-1 rounded-full">+3 ganador</span>
-  if (points === 0) return <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold px-2 py-1 rounded-full">0 pts</span>
+  if (points === 5) return <span className="bg-green-500/20 text-green-400 border border-green-500/30 text-xs font-bold px-2 py-1 rounded-full">+5 puntos</span>
+  if (points === 3) return <span className="bg-yellow-400/20 text-yellow-400 border border-yellow-400/30 text-xs font-bold px-2 py-1 rounded-full">+3 puntos</span>
+  if (points === 0) return <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold px-2 py-1 rounded-full">0 puntos</span>
   return null
 }
 
@@ -118,43 +118,59 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
   const hasPrediction = !!prediction
 
+  const points = prediction?.points
+  const resultColor =
+    points === 5 ? 'green' :
+    points === 3 ? 'yellow' :
+    points === 0 ? 'red' :
+    null
+
+  const borderCls =
+    resultColor === 'green'  ? 'border-green-500/50 shadow-lg shadow-green-900/20' :
+    resultColor === 'yellow' ? 'border-yellow-400/50 shadow-lg shadow-yellow-900/20' :
+    resultColor === 'red'    ? 'border-red-500/40 shadow-lg shadow-red-900/20' :
+    hasPrediction            ? 'border-teal-500/40 shadow-lg shadow-teal-900/20' :
+    isLocked                 ? 'border-white/5 opacity-70' :
+                               'border-white/8 hover:border-white/15'
+
+  const headerBg =
+    resultColor === 'green'  ? 'rgba(34,197,94,0.07)' :
+    resultColor === 'yellow' ? 'rgba(234,179,8,0.07)' :
+    resultColor === 'red'    ? 'rgba(239,68,68,0.07)' :
+    hasPrediction            ? 'rgba(20,184,166,0.07)' :
+                               '#161616'
+
+  const headerBorderCls =
+    resultColor === 'green'  ? 'border-green-500/20' :
+    resultColor === 'yellow' ? 'border-yellow-400/20' :
+    resultColor === 'red'    ? 'border-red-500/20' :
+    hasPrediction            ? 'border-teal-500/20' :
+                               'border-white/5'
+
+  const badgeCls =
+    resultColor === 'green'  ? 'bg-green-500/20 text-green-400' :
+    resultColor === 'yellow' ? 'bg-yellow-400/20 text-yellow-400' :
+    resultColor === 'red'    ? 'bg-red-500/20 text-red-400' :
+    hasPrediction            ? 'bg-teal-500/20 text-teal-400' :
+                               'bg-white/8 text-white/40'
+
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200
-        ${hasResult
-          ? 'border-green-500/40 shadow-lg shadow-green-900/20'
-          : hasPrediction
-            ? 'border-teal-500/40 shadow-lg shadow-teal-900/20'
-            : isLocked
-              ? 'border-white/5 opacity-70'
-              : 'border-white/8 hover:border-white/15'
-        }`}
+      className={`rounded-2xl border transition-all duration-200 ${borderCls}`}
       style={{ background: '#111111' }}
     >
       {/* Header */}
       <div
-        className={`flex items-center justify-between px-4 py-2 rounded-t-2xl border-b
-          ${hasResult
-            ? 'border-green-500/20'
-            : hasPrediction
-              ? 'border-teal-500/20'
-              : 'border-white/5'
-          }`}
-        style={{ background: hasResult ? 'rgba(34,197,94,0.07)' : hasPrediction ? 'rgba(20,184,166,0.07)' : '#161616' }}
+        className={`flex items-center justify-between px-4 py-2 rounded-t-2xl border-b ${headerBorderCls}`}
+        style={{ background: headerBg }}
       >
         <div className="flex items-center gap-2">
           {match.match_number && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full
-              ${hasResult
-                ? 'bg-green-500/20 text-green-400'
-                : hasPrediction
-                  ? 'bg-teal-500/20 text-teal-400'
-                  : 'bg-white/8 text-white/40'
-              }`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeCls}`}>
               P{match.match_number}
             </span>
           )}
-          <span className="text-xs text-white/30 font-medium">{match.round_name ?? 'Partido'}</span>
+          <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">{match.round_name ?? 'Partido'}</span>
         </div>
         <div className="flex items-center gap-2">
           {hasPrediction && !hasResult && (
@@ -162,7 +178,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
               ✓ {prediction.predicted_home}–{prediction.predicted_away}
             </span>
           )}
-          <span className="text-xs text-white/25">{formatDate(match.start_time)}</span>
+          <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">{formatDate(match.start_time)}</span>
         </div>
       </div>
 
@@ -173,10 +189,17 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
           <div className="flex-shrink-0 flex items-center gap-2">
             {hasResult ? (
+              /* Muestra la predicción del usuario en el marcador principal */
               <div className="flex items-center gap-2 rounded-xl px-4 py-2" style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}>
-                <span className="text-2xl font-black text-white">{match.home_score}</span>
-                <span className="text-white/20">–</span>
-                <span className="text-2xl font-black text-white">{match.away_score}</span>
+                {prediction ? (
+                  <>
+                    <span className="text-2xl font-black text-white">{prediction.predicted_home}</span>
+                    <span className="text-white/20">–</span>
+                    <span className="text-2xl font-black text-white">{prediction.predicted_away}</span>
+                  </>
+                ) : (
+                  <span className="text-lg text-white/20 px-2">–</span>
+                )}
               </div>
             ) : isLocked ? (
               <div className="flex flex-col items-center gap-1 px-2">
@@ -215,10 +238,10 @@ export default function MatchCard({ match, prediction, onSaved }) {
           {error && <p className="text-red-400 text-xs">{error}</p>}
         </div>
 
-        {hasResult && prediction && (
+        {/* Resultado oficial debajo */}
+        {hasResult && (
           <div className="mt-2 text-center text-xs text-white/30">
-            Tu predicción: <span className="font-semibold text-white/50">{prediction.predicted_home}–{prediction.predicted_away}</span>
-            {prediction?.points != null && <span className="ml-2">{pointsBadge(prediction.points)}</span>}
+            Resultado: <span className="font-semibold text-white/50">{match.home_score}–{match.away_score}</span>
           </div>
         )}
       </div>

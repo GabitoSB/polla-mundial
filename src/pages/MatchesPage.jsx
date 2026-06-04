@@ -10,38 +10,37 @@ const PHASES = [
   {
     key: 'grupos',
     label: 'Grupos',
-    icon: '🏟️',
     test: (r) => r && r.startsWith('Grupo '),
   },
   {
     key: 'dieciseisavos',
     label: 'Dieciseisavos',
-    icon: '32️⃣',
     test: (r) => r === 'Dieciseisavos',
   },
   {
     key: 'octavos',
     label: 'Octavos',
-    icon: '16️⃣',
     test: (r) => r === 'Octavos de Final',
   },
   {
     key: 'cuartos',
     label: 'Cuartos',
-    icon: '⚡',
     test: (r) => r === 'Cuartos de Final',
   },
   {
     key: 'semis',
     label: 'Semis',
-    icon: '🔥',
     test: (r) => r === 'Semifinal',
+  },
+  {
+    key: 'tercer',
+    label: '3er Puesto',
+    test: (r) => r === 'Tercer Puesto',
   },
   {
     key: 'final',
     label: 'Final',
-    icon: '🏆',
-    test: (r) => r === 'Tercer Puesto' || r === 'Final',
+    test: (r) => r === 'Final',
   },
 ]
 
@@ -89,25 +88,49 @@ export default function MatchesPage() {
     )
 
   return (
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundImage: 'url(/stadium.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Overlay oscuro sobre el estadio */}
+      <div style={{ background: 'rgba(0,0,0,0.6)', minHeight: '100vh' }}>
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Stats bar */}
-      <div className="rounded-2xl p-4 mb-6 flex flex-wrap gap-6 items-center justify-between"
+      <div className="rounded-2xl p-6 mb-6 flex flex-col items-center gap-4"
         style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-        <div>
-          <p className="text-white/30 text-xs font-medium uppercase tracking-widest mb-1">Tus puntos</p>
-          <p className="text-4xl font-black text-white">{user.total_points}</p>
+
+        {/* Tus puntos — recuadro principal */}
+        <div className="flex flex-col items-center text-center px-10 py-4 rounded-2xl"
+          style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+          <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">Tus puntos</p>
+          <span className="text-7xl font-black text-white leading-none">{user.total_points}</span>
         </div>
-        <div className="text-center">
-          <p className="text-white/30 text-xs font-medium uppercase tracking-widest mb-1">Exactos</p>
-          <p className="text-3xl font-bold text-green-400">{user.exact_results}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-white/30 text-xs font-medium uppercase tracking-widest mb-1">Parciales</p>
-          <p className="text-3xl font-bold text-teal-400">{user.partial_score_hits}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-white/30 text-xs font-medium uppercase tracking-widest mb-1">Predicciones</p>
-          <p className="text-3xl font-bold text-white/70">{Object.keys(predictions).length}</p>
+
+        {/* Detalles — recuadros secundarios debajo */}
+        <div className="flex gap-3">
+          <div className="flex flex-col items-center text-center px-5 py-3 rounded-2xl"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">Exactos</p>
+            <span className="text-2xl font-black text-green-400">{user.exact_results}</span>
+            <span className="text-green-700 text-[10px] font-semibold mt-0.5">×5 pts</span>
+          </div>
+          <div className="flex flex-col items-center text-center px-5 py-3 rounded-2xl"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">Parciales</p>
+            <span className="text-2xl font-black text-yellow-400">{user.partial_score_hits}</span>
+            <span className="text-yellow-700 text-[10px] font-semibold mt-0.5">×3 pts</span>
+          </div>
+          <div className="flex flex-col items-center text-center px-5 py-3 rounded-2xl"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">Predicciones</p>
+            <span className="text-2xl font-black text-white/40">{Object.keys(predictions).length}</span>
+            <span className="text-[10px] invisible mt-0.5">·</span>
+          </div>
         </div>
       </div>
 
@@ -136,7 +159,6 @@ export default function MatchesPage() {
                       : { background: '#111111', color: 'rgba(255,255,255,0.4)', border: '1px solid #222' }
                     }
                   >
-                    <span>{phase.icon}</span>
                     <span>{phase.label}</span>
                     <span className="text-xs rounded-full px-1.5 py-0.5 font-bold"
                       style={isActive ? { background: 'rgba(255,255,255,0.2)', color: '#fff' } : { background: '#1e1e1e', color: 'rgba(255,255,255,0.3)' }}>
@@ -155,6 +177,8 @@ export default function MatchesPage() {
           )}
         </>
       )}
+    </div>
+      </div>
     </div>
   )
 }
@@ -204,7 +228,7 @@ function GroupProgress({ matches }) {
   const done = matches.filter((m) => m.home_score !== null).length
   const total = matches.length
   return (
-    <span className="text-xs text-white/25 font-medium whitespace-nowrap">
+    <span className="text-sm font-bold text-white/70 whitespace-nowrap">
       {done}/{total} jugados
     </span>
   )

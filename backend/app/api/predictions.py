@@ -9,8 +9,29 @@ from app.models.match import Match
 from app.models.prediction import Prediction
 from app.models.user import User
 from app.schemas.prediction import PredictionAdminResponse, PredictionCreate, PredictionResponse
+from app.services.knockout import is_knockout_round, normalize_knockout_prediction
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
+
+
+def _apply_prediction_fields(match: Match, payload: PredictionCreate) -> dict:
+    home, away = payload.predicted_home, payload.predicted_away
+    penalty = payload.predicted_penalty_winner
+    extra = payload.predicted_extra_time
+
+    if is_knockout_round(match.round_name):
+        home, away, penalty, extra = normalize_knockout_prediction(
+            match, home, away, penalty, extra,
+        )
+    else:
+        penalty, extra = None, None
+
+    return {
+        "predicted_home": home,
+        "predicted_away": away,
+        "predicted_penalty_winner": penalty,
+        "predicted_extra_time": extra,
+    }
 
 
 def _assert_match_open(match: Match) -> None:
@@ -50,13 +71,11 @@ def create_prediction(
             detail="Ya tienes una predicción para este partido. Usa PUT para modificarla.",
         )
 
+    fields = _apply_prediction_fields(match, payload)
     prediction = Prediction(
         user_id=current_user.id,
         match_id=payload.match_id,
-        predicted_home=payload.predicted_home,
-        predicted_away=payload.predicted_away,
-        predicted_penalty_winner=payload.predicted_penalty_winner,
-        predicted_extra_time=payload.predicted_extra_time,
+        **fields,
     )
     db.add(prediction)
     db.commit()
@@ -80,10 +99,11 @@ def update_prediction(
     match = db.get(Match, prediction.match_id)
     _assert_match_open(match)
 
-    prediction.predicted_home = payload.predicted_home
-    prediction.predicted_away = payload.predicted_away
-    prediction.predicted_penalty_winner = payload.predicted_penalty_winner
-    prediction.predicted_extra_time = payload.predicted_extra_time
+    fields = _apply_prediction_fields(match, payload)
+    prediction.predicted_home = fields["predicted_home"]
+    prediction.predicted_away = fields["predicted_away"]
+    prediction.predicted_penalty_winner = fields["predicted_penalty_winner"]
+    prediction.predicted_extra_time = fields["predicted_extra_time"]
     db.commit()
     db.refresh(prediction)
     return prediction

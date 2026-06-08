@@ -2,9 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    font-size: 17px;
+  }
+  @media (min-width: 768px) {
+    html {
+      font-size: 18px;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer utilities {
+  /* Texto legible sobre fondos oscuros (#111, estadio, etc.) */
+  .text-on-dark {
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .text-on-dark-muted {
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .text-on-dark-subtle {
+    color: rgba(255, 255, 255, 0.58);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  .stadium-bg {
+    background-attachment: scroll;
+  }
+  @media (min-width: 768px) {
+    .stadium-bg {
+      background-attachment: fixed;
+    }
+  }
+}
+
 @layer components {
   .input {
-    @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm
+    @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-base
            focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500
            transition-all bg-white;
   }

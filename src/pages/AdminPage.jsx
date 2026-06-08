@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
 import { deleteMatch, getMatchPredictions, getMatches, updateResult, updateSchedule } from '../api/matches'
 import BracketDiagram from '../components/BracketDiagram'
+import ViewLayoutToggle from '../components/ViewLayoutToggle'
+import { sortMatches } from '../utils/matchSort'
 
 const isoOf = (name) => MUNDIAL_COUNTRIES.find((c) => c.name === name)?.iso ?? null
 
@@ -67,7 +69,7 @@ function TabBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all"
+      className="flex-1 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all text-center"
       style={active
         ? { background: 'linear-gradient(135deg,#00c9a7,#0057ff)', color: '#fff', boxShadow: '0 2px 12px rgba(0,180,150,0.2)' }
         : { background: 'transparent', color: 'rgba(255,255,255,0.35)' }
@@ -80,8 +82,8 @@ function TabBtn({ active, onClick, children }) {
 
 function FilterSelect({ label, value, onChange, options }) {
   return (
-    <div className="flex flex-col gap-1 min-w-[10rem]">
-      <label className="text-[10px] font-semibold text-white/25 uppercase tracking-widest">
+    <div className="flex flex-col gap-1 w-full sm:min-w-[10rem] sm:w-auto">
+      <label className="text-[10px] font-semibold text-on-dark-muted uppercase tracking-widest">
         {label}
       </label>
       <select
@@ -432,24 +434,27 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
 
   const scoreControls = (
     <>
-      <div className="flex items-center gap-2 flex-wrap">
-        <input type="number" min="0" value={curHome}
-          onChange={(e) => { setResult(m.id, 'home', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
-          className={inputCls} style={inputStyle} placeholder="–" />
-        <span className="text-white/20 font-bold">–</span>
-        <input type="number" min="0" value={curAway}
-          onChange={(e) => { setResult(m.id, 'away', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
-          className={inputCls} style={inputStyle} placeholder="–" />
-        <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id]}
-          className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
-          style={isFinished
-            ? { background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.35)' }
-            : { background: 'rgba(0,180,100,0.3)', border: '1px solid rgba(0,200,100,0.2)' }
-          }>
-          {saving[m.id] ? '…' : isFinished ? 'Corregir' : 'Guardar'}
-        </button>
-        {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
-        {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+      <div className="flex flex-col items-start lg:items-end gap-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input type="number" min="0" value={curHome}
+            onChange={(e) => { setResult(m.id, 'home', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+            className={inputCls} style={inputStyle} placeholder="–" />
+          <span className="text-white/20 font-bold">–</span>
+          <input type="number" min="0" value={curAway}
+            onChange={(e) => { setResult(m.id, 'away', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+            className={inputCls} style={inputStyle} placeholder="–" />
+          <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id]}
+            className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
+            style={isFinished
+              ? { background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.35)' }
+              : { background: 'rgba(0,180,100,0.3)', border: '1px solid rgba(0,200,100,0.2)' }
+            }>
+            {saving[m.id] ? '…' : isFinished ? 'Corregir' : 'Guardar'}
+          </button>
+          {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
+          {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+        </div>
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
       </div>
 
       {isKnockoutRound && !isTBD(m.home_team) && !isTBD(m.away_team) && (
@@ -499,25 +504,24 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
         className={`rounded-xl border-l-4 p-3 ${rowStyle.border}`}
         style={{ background: rowStyle.bg, borderColor: '#252525', borderLeftWidth: 4 }}
       >
-        <div className="flex items-center justify-between gap-1 mb-2">
-          <span className="text-[10px] font-bold text-white/40">P{m.match_number}</span>
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}`}>{label}</span>
+        <div className="mb-2">
+          <span className="text-[10px] font-bold text-on-dark-muted">P{m.match_number}</span>
         </div>
         <div className="space-y-1.5 mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {!isTBD(m.home_team) && <FlagImg name={m.home_team} size={14} />}
-            <span className={`text-xs font-semibold truncate ${isTBD(m.home_team) ? 'text-white/25 italic' : 'text-white/75'}`}>
+            <span className={`text-xs font-semibold truncate ${isTBD(m.home_team) ? 'text-on-dark-subtle italic' : 'text-on-dark'}`}>
               {m.home_team}
             </span>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
             {!isTBD(m.away_team) && <FlagImg name={m.away_team} size={14} />}
-            <span className={`text-xs font-semibold truncate ${isTBD(m.away_team) ? 'text-white/25 italic' : 'text-white/75'}`}>
+            <span className={`text-xs font-semibold truncate ${isTBD(m.away_team) ? 'text-on-dark-subtle italic' : 'text-on-dark'}`}>
               {m.away_team}
             </span>
           </div>
         </div>
-        <p className="text-[10px] text-white/25 mb-2">{fmt(m.start_time)}</p>
+        <p className="text-[10px] text-on-dark-muted mb-2">{fmt(m.start_time)}</p>
         {scoreControls}
         <MatchPredictionsPanel match={m} isKnockout={isKnockoutRound} />
       </div>
@@ -533,19 +537,18 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {m.match_number && (
-              <span className="bg-white/8 text-white/40 text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+              <span className="bg-white/10 text-on-dark-muted text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                 P{m.match_number}
               </span>
             )}
             {!isTBD(m.home_team) && <FlagImg name={m.home_team} size={20} />}
-            <span className={`font-bold ${isTBD(m.home_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.home_team}</span>
-            <span className="text-xs font-bold text-white/20">VS</span>
+            <span className={`font-bold ${isTBD(m.home_team) ? 'text-on-dark-subtle italic' : 'text-on-dark'}`}>{m.home_team}</span>
+            <span className="text-xs font-bold text-on-dark-subtle">VS</span>
             {!isTBD(m.away_team) && <FlagImg name={m.away_team} size={20} />}
-            <span className={`font-bold ${isTBD(m.away_team) ? 'text-white/25 italic' : 'text-white/70'}`}>{m.away_team}</span>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
+            <span className={`font-bold ${isTBD(m.away_team) ? 'text-on-dark-subtle italic' : 'text-on-dark'}`}>{m.away_team}</span>
           </div>
           <div className="flex items-center gap-1 mt-0.5">
-            <p className="text-xs text-white/20">{fmt(m.start_time)}</p>
+            <p className="text-xs text-on-dark-muted">{fmt(m.start_time)}</p>
             <DateEditRow match={m} onSaved={onRefresh} />
           </div>
         </div>
@@ -576,6 +579,7 @@ function MatchListTab({ matches, onRefresh }) {
   const editor = useMatchResultEditor(onRefresh)
   const [resultFilter, setResultFilter] = useState('all')
   const [phaseFilter, setPhaseFilter] = useState('all')
+  const [layout, setLayout] = useState('chronological')
 
   const phaseOptions = useMemo(() => {
     const names = [...new Set(matches.map((m) => m.round_name).filter(Boolean))]
@@ -602,7 +606,7 @@ function MatchListTab({ matches, onRefresh }) {
     <div className="space-y-4">
       {/* Filter bar */}
       <div
-        className="rounded-2xl px-4 py-3 flex flex-wrap gap-4 items-end"
+        className="rounded-2xl px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 sm:items-end"
         style={{ background: '#111111', border: '1px solid #1e1e1e' }}
       >
         <FilterSelect
@@ -624,35 +628,50 @@ function MatchListTab({ matches, onRefresh }) {
             ...phaseOptions.map((name) => ({ value: name, label: name })),
           ]}
         />
-        <span className="ml-auto text-xs text-white/30 pb-2">
+        <ViewLayoutToggle value={layout} onChange={setLayout} className="sm:pb-0.5" />
+        <span className="sm:ml-auto text-xs text-on-dark-muted sm:pb-2">
           {filtered.length} partido{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {filtered.length === 0 && (
-        <div className="rounded-2xl py-16 text-center text-white/25" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
+        <div className="rounded-2xl py-16 text-center text-on-dark-muted" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
           <p className="text-4xl mb-3">📭</p>
           <p className="font-medium">No hay partidos en esta categoría</p>
         </div>
       )}
 
-      {sortedGroupKeys.map((round) => {
-        const roundMatches = groups[round]
-        return (
-          <div key={round} className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
-            <div className="px-5 py-3 flex items-center gap-2" style={{ background: '#161616', borderBottom: '1px solid #1e1e1e' }}>
-              <span className="text-sm font-bold text-white/60">{round}</span>
-              <span className="text-xs text-white/20">({roundMatches.length} partido{roundMatches.length !== 1 ? 's' : ''})</span>
-            </div>
-
-            <div className="divide-y" style={{ borderColor: '#1a1a1a' }}>
-              {roundMatches.map((m) => (
-                <AdminMatchRow key={m.id} match={m} editor={editor} onRefresh={onRefresh} />
-              ))}
-            </div>
+      {layout === 'chronological' ? (
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
+          <div className="px-5 py-3 flex items-center gap-2" style={{ background: '#161616', borderBottom: '1px solid #1e1e1e' }}>
+            <span className="text-sm font-bold text-on-dark">Por fecha</span>
+            <span className="text-xs text-on-dark-subtle">del más próximo al más lejano</span>
           </div>
-        )
-      })}
+          <div className="divide-y" style={{ borderColor: '#1a1a1a' }}>
+            {sortMatches(filtered).map((m) => (
+              <AdminMatchRow key={m.id} match={m} editor={editor} onRefresh={onRefresh} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        sortedGroupKeys.map((round) => {
+          const roundMatches = sortMatches(groups[round])
+          return (
+            <div key={round} className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
+              <div className="px-5 py-3 flex items-center gap-2" style={{ background: '#161616', borderBottom: '1px solid #1e1e1e' }}>
+              <span className="text-sm font-bold text-on-dark">{round}</span>
+              <span className="text-xs text-on-dark-subtle">({roundMatches.length} partido{roundMatches.length !== 1 ? 's' : ''})</span>
+              </div>
+
+              <div className="divide-y" style={{ borderColor: '#1a1a1a' }}>
+                {roundMatches.map((m) => (
+                  <AdminMatchRow key={m.id} match={m} editor={editor} onRefresh={onRefresh} />
+                ))}
+              </div>
+            </div>
+          )
+        })
+      )}
     </div>
   )
 }
@@ -764,12 +783,11 @@ export default function AdminPage() {
     backgroundImage: 'url(/stadium.png)',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    backgroundAttachment: 'fixed',
   }
 
   if (loading)
     return (
-      <div className="min-h-screen" style={pageBg}>
+      <div className="min-h-screen stadium-bg" style={pageBg}>
         <div className="min-h-screen flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500" />
         </div>
@@ -777,19 +795,19 @@ export default function AdminPage() {
     )
 
   return (
-    <div className="min-h-screen" style={pageBg}>
+    <div className="min-h-screen stadium-bg" style={pageBg}>
       <div className="min-h-screen" style={{ background: 'rgba(0,0,0,0.55)' }}>
-    <div className={`mx-auto px-4 py-6 space-y-6 ${tab === 'bracket' ? 'max-w-[min(100%,80rem)]' : 'max-w-4xl'}`}>
+    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white">Panel de Administración</h1>
-          <p className="text-white/30 text-sm mt-0.5">Gestiona los partidos y resultados del torneo</p>
+      <div className="flex items-start sm:items-center justify-between flex-wrap gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-white">Panel de Administración</h1>
+          <p className="text-on-dark-muted text-xs sm:text-sm mt-0.5">Gestiona los partidos y resultados del torneo</p>
         </div>
         <button onClick={load}
-          className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 px-4 py-2 rounded-xl transition-colors font-medium"
+          className="flex items-center gap-2 text-sm text-on-dark-muted hover:text-on-dark px-3 sm:px-4 py-2 rounded-xl transition-colors font-medium shrink-0"
           style={{ background: '#111111', border: '1px solid #2a2a2a' }}>
-          🔄 Actualizar
+          Actualizar
         </button>
       </div>
 
@@ -801,12 +819,14 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-2xl w-fit flex-wrap" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
+      <div className="flex gap-1 p-1 rounded-2xl w-full" style={{ background: '#111111', border: '1px solid #1e1e1e' }}>
         <TabBtn active={tab === 'manage'} onClick={() => setTab('manage')}>
-          📋 Gestionar partidos {total > 0 && `(${total})`}
+          <span className="sm:hidden">Gestionar {total > 0 && `(${total})`}</span>
+          <span className="hidden sm:inline">Gestionar partidos {total > 0 && `(${total})`}</span>
         </TabBtn>
         <TabBtn active={tab === 'bracket'} onClick={() => setTab('bracket')}>
-          🔗 Bracket eliminatorias
+          <span className="sm:hidden">Bracket</span>
+          <span className="hidden sm:inline">Bracket eliminatorias</span>
           {tbdKnockout > 0 && (
             <span className="ml-1.5 bg-amber-400/20 text-amber-400 border border-amber-400/30 text-xs font-black px-1.5 py-0.5 rounded-full">
               {tbdKnockout}

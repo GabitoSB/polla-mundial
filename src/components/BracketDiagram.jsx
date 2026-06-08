@@ -306,7 +306,7 @@ export default function BracketDiagram({ matches, selectedMatchNum, onSelectMatc
 
       <div className="overflow-x-auto pb-2">
         <div
-          className="mx-auto min-w-[920px] max-w-[1100px] px-2 py-4 rounded-xl"
+          className="w-full min-w-[min(100%,720px)] sm:min-w-[920px] px-1 sm:px-2 py-4 rounded-xl"
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,

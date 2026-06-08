@@ -18,6 +18,10 @@ Knockout bonus (awarded on top of base points when outcome direction is correct)
     bonus is earned ONLY if the user also predicted the correct penalty_winner.
   For a non-drawn knockout result:
     bonus is earned whenever the user got the correct winner (partial or exact).
+
+Extra time bonus (+2 pts):
+  All knockout matches. Non-draw: user picks Sí/No. Draw (penales): alargue assumed Sí.
+  +2 if prediction matches the real match (requires 3 or 5 pts base).
 """
 from __future__ import annotations
 
@@ -101,9 +105,13 @@ def score_prediction(
             if real_penalty_winner and predicted_penalty_winner == real_penalty_winner:
                 bonus = round_bonus
 
-    # ── Extra time bonus (+2 pts for all knockout matches) ────────────────────
+    # ── Extra time bonus (+2 pts, all knockout matches) ───────────────────────
     extra_time_bonus = 0
-    if round_name in KNOCKOUT_BONUS and real_extra_time is not None and predicted_extra_time is not None:
+    if (
+        round_name in KNOCKOUT_BONUS
+        and real_extra_time is not None
+        and predicted_extra_time is not None
+    ):
         if predicted_extra_time == real_extra_time:
             extra_time_bonus = 2
 

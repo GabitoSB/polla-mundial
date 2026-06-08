@@ -14,7 +14,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 
 @router.get("/", response_model=list[MatchResponse])
 def list_matches(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Match).order_by(Match.start_time).all()
+    return db.query(Match).order_by(Match.start_time, Match.match_number).all()
 
 
 @router.get("/{match_id}/predictions", response_model=list[PredictionAdminResponse])

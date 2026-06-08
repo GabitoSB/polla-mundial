@@ -1,4 +1,7 @@
-"""Limpia la BD: elimina todos los usuarios (excepto admin) y todos los partidos."""
+"""
+Limpieza total: elimina predicciones, partidos y usuarios (excepto admin).
+Para solo borrar predicciones/resultados usar reset_predictions_results.py.
+"""
 import os
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://postgres:root@localhost:5432/polla_db")
 os.environ.setdefault("SECRET_KEY", "cambia-esta-clave-secreta-en-produccion-2024")

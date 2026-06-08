@@ -9,6 +9,8 @@ const KNOCKOUT_ROUNDS = new Set([
 
 const isoOf = (name) => MUNDIAL_COUNTRIES.find((c) => c.name === name)?.iso ?? null
 
+const isTBDTeam = (name) => !name || /^(ganador|perdedor|1[°º]|2[°º]|3[°º])/i.test(name.trim())
+
 function FlagImg({ name, size = 32 }) {
   const iso = isoOf(name)
   if (!iso) return <span className="text-2xl">🌐</span>
@@ -33,7 +35,7 @@ function TBDFlag({ size = 40 }) {
       style={{ width: size, height }}
       aria-label="Por definir"
     >
-      <span className="text-[6px] font-bold uppercase text-white/40 text-center leading-[1.15] tracking-wide px-0.5">
+      <span className="text-[6px] font-bold uppercase text-on-dark-muted text-center leading-[1.15] tracking-wide px-0.5">
         POR
         <br />
         DEFINIR
@@ -42,18 +44,55 @@ function TBDFlag({ size = 40 }) {
   )
 }
 
-function TeamLabel({ name }) {
+function TeamLabel({ name, selectable, selected, onSelect }) {
   const len = name?.length ?? 0
-  const textSize = len > 13 ? 'text-xs' : len > 9 ? 'text-sm' : 'text-base'
-  const isTBD = !name || /^(ganador|perdedor|1[°º]|2[°º]|3[°º])/i.test(name.trim())
+  const textSize = len > 13 ? 'text-sm' : len > 9 ? 'text-base' : 'text-lg'
+  const isTBD = isTBDTeam(name)
 
-  return (
-    <div className="w-24 flex flex-col items-center gap-1.5">
-      {isTBD ? <TBDFlag size={40} /> : <FlagImg name={name} size={40} />}
-      <p className={`font-bold text-white/90 text-center leading-tight w-full ${textSize}`}>
+  const inner = (
+    <>
+      <div className="relative">
+        <div
+          className={`rounded-sm transition-all ${
+            selected
+              ? 'ring-2 ring-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.25)]'
+              : selectable
+                ? 'ring-1 ring-transparent hover:ring-white/20'
+                : ''
+          }`}
+        >
+          {isTBD ? <TBDFlag size={40} /> : <FlagImg name={name} size={40} />}
+        </div>
+        {selected && (
+          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-wide bg-teal-400 text-black px-1.5 py-px rounded-sm whitespace-nowrap">
+            Penales
+          </span>
+        )}
+      </div>
+      <p className={`font-bold text-center leading-tight w-full ${textSize} ${selected ? 'text-teal-300' : 'text-white/90'}`}>
         {name}
       </p>
-    </div>
+    </>
+  )
+
+  if (!selectable) {
+    return (
+      <div className="w-full max-w-[6.5rem] sm:w-24 flex flex-col items-center gap-1.5">
+        {inner}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="w-full max-w-[6.5rem] sm:w-24 flex flex-col items-center gap-1.5 rounded-lg p-1 -m-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-teal-500/50"
+      aria-pressed={selected}
+      aria-label={`${name}${selected ? ', pasa por penales' : ', elegir para penales'}`}
+    >
+      {inner}
+    </button>
   )
 }
 
@@ -71,7 +110,7 @@ function ScoreInput({ value, onChange, disabled }) {
       onChange={handleChange}
       disabled={disabled}
       placeholder="–"
-      className="w-12 text-center text-xl font-bold rounded-lg p-2
+      className="w-16 sm:w-14 text-center text-2xl font-bold rounded-lg p-2
                  focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:cursor-not-allowed transition-colors
                  text-white placeholder-white/20"
       style={{ background: '#1a1a1a', border: '2px solid #333' }}
@@ -79,59 +118,33 @@ function ScoreInput({ value, onChange, disabled }) {
   )
 }
 
-/** Extra time toggle — shown in all knockout matches */
-function ExtraTimePicker({ value, onChange }) {
+/** Extra time toggle — inline row for knockout matches */
+function ExtraTimePicker({ value, onChange, locked = false }) {
+  const display = locked ? true : value
+
   return (
-    <div className="mt-3 flex flex-col items-center gap-1.5">
-      <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest">
-        ¿Habrá alargue?
-      </p>
-      <div className="flex gap-2">
+    <div className="mt-2 flex items-center justify-center gap-2">
+      <span className="text-xs font-bold text-on-dark-muted uppercase tracking-wider shrink-0">
+        Alargue
+      </span>
+      <div className="flex gap-1.5">
         {[true, false].map((opt) => (
           <button
             key={String(opt)}
             type="button"
-            onClick={() => onChange(value === opt ? null : opt)}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+            disabled={locked}
+            onClick={() => !locked && onChange(value === opt ? null : opt)}
+            className={`px-3.5 py-1.5 rounded-md text-sm font-bold transition-all min-w-[3rem] ${
+              locked ? 'cursor-not-allowed' : ''
+            }`}
             style={{
-              background: value === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
-              border: value === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
-              color: value === opt ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+              background: display === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
+              border: display === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
+              color: display === opt ? '#fbbf24' : 'rgba(255,255,255,0.65)',
+              opacity: locked && display !== opt ? 0.4 : 1,
             }}
           >
             {opt ? 'Sí' : 'No'}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** Penalty winner selector — shown in knockout matches when predicted score is a draw */
-function PenaltyPicker({ homeTeam, awayTeam, value, onChange }) {
-  const isTBD = (t) => !t || /^(ganador|perdedor|1[°º]|2[°º]|3[°º])/i.test(t.trim())
-  if (isTBD(homeTeam) || isTBD(awayTeam)) return null
-
-  return (
-    <div className="mt-3 flex flex-col items-center gap-1.5">
-      <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest">
-        ¿Quién pasa por penales?
-      </p>
-      <div className="flex gap-2">
-        {[homeTeam, awayTeam].map((team) => (
-          <button
-            key={team}
-            type="button"
-            onClick={() => onChange(value === team ? null : team)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-            style={{
-              background: value === team ? 'rgba(20,184,166,0.2)' : '#1a1a1a',
-              border: value === team ? '1px solid rgba(20,184,166,0.5)' : '1px solid #2a2a2a',
-              color: value === team ? '#2dd4bf' : 'rgba(255,255,255,0.4)',
-            }}
-          >
-            <FlagImg name={team} size={16} />
-            {team}
           </button>
         ))}
       </div>
@@ -147,7 +160,7 @@ function pointsBadge(points) {
     points >= 3 ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30' :
                   'bg-red-500/20 text-red-400 border-red-500/30'
   return (
-    <span className={`border text-xs font-bold px-2 py-1 rounded-full ${color}`}>
+    <span className={`border text-sm font-bold px-2.5 py-1 rounded-full ${color}`}>
       +{points} puntos
     </span>
   )
@@ -166,12 +179,29 @@ export default function MatchCard({ match, prediction, onSaved }) {
   const [error, setError] = useState(null)
   const [saved, setSaved] = useState(false)
 
-  // Show penalty picker when: knockout round + both scores filled + draw predicted
-  const showPenaltyPicker = isKnockout && home !== '' && away !== '' && Number(home) === Number(away)
+  const predictedDraw = home !== '' && away !== '' && Number(home) === Number(away)
+  const showPenaltyPicker = isKnockout && predictedDraw
 
-  // Clear penalty winner if scores are no longer a draw
-  const handleHomeChange = (v) => { setHome(v); if (Number(v) !== Number(away)) setPenaltyWinner(null) }
-  const handleAwayChange = (v) => { setAway(v); if (Number(home) !== Number(v)) setPenaltyWinner(null) }
+  const handleHomeChange = (v) => {
+    setHome(v)
+    if (v === '' || away === '' || Number(v) !== Number(away)) {
+      setPenaltyWinner(null)
+      if (v !== '' && away !== '' && Number(v) !== Number(away)) setExtraTime(null)
+    }
+  }
+  const handleAwayChange = (v) => {
+    setAway(v)
+    if (v === '' || home === '' || Number(home) !== Number(v)) {
+      setPenaltyWinner(null)
+      if (home !== '' && v !== '' && Number(home) !== Number(v)) setExtraTime(null)
+    }
+  }
+
+  const canSave = home !== '' && away !== '' && (
+    !isKnockout || (
+      predictedDraw ? !!penaltyWinner : extraTime !== null
+    )
+  )
 
   const handleSave = async () => {
     if (home === '' || away === '') return
@@ -183,7 +213,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
         predicted_home: home,
         predicted_away: away,
         predicted_penalty_winner: showPenaltyPicker ? penaltyWinner : null,
-        predicted_extra_time: isKnockout ? extraTime : null,
+        predicted_extra_time: isKnockout ? (predictedDraw ? true : extraTime) : null,
       }
       if (prediction) {
         await updatePrediction(prediction.id, payload)
@@ -237,7 +267,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
     resultColor === 'green'  ? 'bg-green-500/20 text-green-400' :
     resultColor === 'yellow' ? 'bg-yellow-400/20 text-yellow-400' :
     resultColor === 'red'    ? 'bg-red-500/20 text-red-400' :
-    hasPrediction            ? 'bg-teal-500/20 text-teal-400' : 'bg-white/8 text-white/40'
+    hasPrediction            ? 'bg-teal-500/20 text-teal-400' : 'bg-white/10 text-on-dark-muted'
 
   return (
     <div
@@ -246,36 +276,35 @@ export default function MatchCard({ match, prediction, onSaved }) {
     >
       {/* Header */}
       <div
-        className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 rounded-t-2xl border-b ${headerBorderCls}`}
+        className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-1 sm:gap-x-3 sm:gap-y-1 px-3 sm:px-4 py-2 rounded-t-2xl border-b ${headerBorderCls}`}
         style={{ background: headerBg }}
       >
         <div className="flex items-center gap-2 min-w-0">
           {match.match_number && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
+            <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
               P{match.match_number}
             </span>
           )}
-          <span className="text-xs font-semibold text-white/60 uppercase tracking-wide truncate">
+          <span className="text-sm font-semibold text-on-dark-muted uppercase tracking-wide truncate">
             {match.round_name ?? 'Partido'}
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-          {hasPrediction && !hasResult && (
-            <span className="text-xs bg-teal-500/15 text-teal-400 border border-teal-500/20 font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
-              ✓ {prediction.predicted_home}–{prediction.predicted_away}
-              {prediction.predicted_penalty_winner && ` (${prediction.predicted_penalty_winner})`}
-            </span>
-          )}
-          <span className="text-xs font-semibold text-white/60 uppercase tracking-wide whitespace-nowrap">
+        <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto flex-wrap">
+          <span className="text-sm font-semibold text-on-dark-muted uppercase tracking-wide whitespace-nowrap">
             {formatDate(match.start_time)}
           </span>
         </div>
       </div>
 
       {/* Teams + scores */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between gap-2">
-          <TeamLabel name={match.home_team} />
+      <div className="px-3 sm:px-4 py-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2">
+          <TeamLabel
+            name={match.home_team}
+            selectable={!isLocked && !hasResult && showPenaltyPicker}
+            selected={penaltyWinner === match.home_team}
+            onSelect={() => setPenaltyWinner(penaltyWinner === match.home_team ? null : match.home_team)}
+          />
 
           <div className="flex-shrink-0 flex items-center gap-2">
             {hasResult ? (
@@ -292,10 +321,10 @@ export default function MatchCard({ match, prediction, onSaved }) {
               </div>
             ) : isLocked ? (
               <div className="flex flex-col items-center gap-1 px-2">
-                <span className="text-lg font-bold text-white/40">
+                <span className="text-lg font-bold text-on-dark-muted">
                   {prediction ? `${prediction.predicted_home}–${prediction.predicted_away}` : '–'}
                 </span>
-                <span className="text-xs bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">Cerrado</span>
+                <span className="text-sm bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2.5 py-0.5 rounded-full">Cerrado</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -306,21 +335,19 @@ export default function MatchCard({ match, prediction, onSaved }) {
             )}
           </div>
 
-          <TeamLabel name={match.away_team} />
+          <TeamLabel
+            name={match.away_team}
+            selectable={!isLocked && !hasResult && showPenaltyPicker}
+            selected={penaltyWinner === match.away_team}
+            onSelect={() => setPenaltyWinner(penaltyWinner === match.away_team ? null : match.away_team)}
+          />
         </div>
 
-        {/* Extra time toggle (knockout matches, only while open) */}
         {!isLocked && !hasResult && isKnockout && (
-          <ExtraTimePicker value={extraTime} onChange={setExtraTime} />
-        )}
-
-        {/* Penalty picker (only when predicting a draw in knockout) */}
-        {!isLocked && !hasResult && showPenaltyPicker && (
-          <PenaltyPicker
-            homeTeam={match.home_team}
-            awayTeam={match.away_team}
-            value={penaltyWinner}
-            onChange={setPenaltyWinner}
+          <ExtraTimePicker
+            value={predictedDraw ? true : extraTime}
+            onChange={setExtraTime}
+            locked={predictedDraw}
           />
         )}
 
@@ -331,21 +358,21 @@ export default function MatchCard({ match, prediction, onSaved }) {
           {!isLocked && !hasResult && (
             <button
               onClick={handleSave}
-              disabled={saving || home === '' || away === ''}
-              className="text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-all disabled:opacity-30"
+              disabled={saving || !canSave}
+              className="text-white text-base font-semibold px-5 py-2.5 rounded-full transition-all disabled:opacity-30 min-h-[44px]"
               style={{ background: 'linear-gradient(135deg, #00c9a7, #0057ff)', boxShadow: '0 2px 12px rgba(0,180,150,0.2)' }}
             >
               {saving ? 'Guardando…' : saved ? '✓ Guardado' : hasPrediction ? 'Actualizar' : 'Guardar'}
             </button>
           )}
 
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
         </div>
 
         {/* Resultado oficial + ganador por penales */}
         {hasResult && (
-          <div className="mt-2 text-center text-xs text-white/30">
-            Resultado: <span className="font-semibold text-white/50">{match.home_score}–{match.away_score}</span>
+          <div className="mt-2 text-center text-sm text-on-dark-muted">
+            Resultado: <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
             {match.penalty_winner && (
               <span className="ml-2 text-amber-400/70">· Penales: <span className="font-semibold">{match.penalty_winner}</span></span>
             )}
@@ -354,22 +381,22 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
         {/* Predicted penalty winner display (after result) */}
         {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
-          <div className="mt-1 text-center text-xs text-white/25">
-            Tu penales: <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-white/30'}`}>
+          <div className="mt-1 text-center text-sm text-on-dark-muted">
+            Tu penales: <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
               {prediction.predicted_penalty_winner}
             </span>
           </div>
         )}
 
         {/* Extra time prediction display (after result for knockout matches) */}
-        {hasResult && isKnockout && prediction && match.has_extra_time !== null && match.has_extra_time !== undefined && (
-          <div className="mt-1 text-center text-xs text-white/25">
+        {hasResult && isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time !== null && match.has_extra_time !== undefined && (
+          <div className="mt-1 text-center text-sm text-on-dark-muted">
             Alargue: tu predicción{' '}
-            <span className={`font-semibold ${prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400' : 'text-white/30'}`}>
+            <span className={`font-semibold ${prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
               {prediction.predicted_extra_time === true ? 'Sí' : prediction.predicted_extra_time === false ? 'No' : '—'}
             </span>
             {' · '}real{' '}
-            <span className="font-semibold text-white/50">
+            <span className="font-semibold text-on-dark">
               {match.has_extra_time ? 'Sí' : 'No'}
             </span>
             {prediction.predicted_extra_time === match.has_extra_time && (

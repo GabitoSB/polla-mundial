@@ -221,7 +221,7 @@ function GroupsView({ matches, predictions, onSaved, layout }) {
         <p className="text-xs font-semibold uppercase tracking-widest text-on-dark-muted px-1 text-center">
           Del más próximo al más lejano
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="match-cards-grid">
           {sorted.map((m) => (
             <MatchCard
               key={m.id}
@@ -257,7 +257,7 @@ function GroupsView({ matches, predictions, onSaved, layout }) {
             <div className="flex-1 h-px" style={{ background: '#1e1e1e' }} />
             <GroupProgress matches={groupMatches} />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="match-cards-grid">
             {groupMatches.map((m) => (
               <MatchCard
                 key={m.id}
@@ -301,7 +301,7 @@ function PhaseView({ matches, predictions, onSaved }) {
                 {round}
               </h2>
             )}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="match-cards-grid">
               {roundMatches.map((m) => (
                 <MatchCard
                   key={m.id}

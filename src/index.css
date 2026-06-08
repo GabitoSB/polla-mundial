@@ -44,6 +44,13 @@
 }
 
 @layer components {
+  /* Tarjetas de partido: ancho mínimo para caber fase + fecha en el header */
+  .match-cards-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 23rem), 1fr));
+  }
+
   .input {
     @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-base
            focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500

@@ -274,26 +274,24 @@ export default function MatchCard({ match, prediction, onSaved }) {
       className={`rounded-2xl border transition-all duration-200 ${borderCls}`}
       style={{ background: '#111111' }}
     >
-      {/* Header */}
+      {/* Header — fase y fecha siempre en una fila */}
       <div
-        className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-1 sm:gap-x-3 sm:gap-y-1 px-3 sm:px-4 py-2 rounded-t-2xl border-b ${headerBorderCls}`}
+        className={`flex flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 rounded-t-2xl border-b flex-nowrap ${headerBorderCls}`}
         style={{ background: headerBg }}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {match.match_number && (
-            <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${badgeCls}`}>
               P{match.match_number}
             </span>
           )}
-          <span className="text-sm font-semibold text-on-dark-muted uppercase tracking-wide truncate">
+          <span className="text-xs font-semibold text-on-dark-muted uppercase tracking-wide truncate">
             {match.round_name ?? 'Partido'}
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto flex-wrap">
-          <span className="text-sm font-semibold text-on-dark-muted uppercase tracking-wide whitespace-nowrap">
-            {formatDate(match.start_time)}
-          </span>
-        </div>
+        <span className="text-xs font-semibold text-on-dark-muted uppercase tracking-wide whitespace-nowrap flex-shrink-0 text-right">
+          {formatDate(match.start_time)}
+        </span>
       </div>
 
       {/* Teams + scores */}

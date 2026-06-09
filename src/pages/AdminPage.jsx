@@ -59,9 +59,28 @@ const ROW_STYLE = {
   finished: { border: 'border-l-emerald-500/80', bg: 'rgba(16,185,129,0.06)' },
 }
 
-/** Returns true if the team name is a TBD placeholder (bracket reference) */
+/** Bracket slot sin equipo real aún (Ganador P73, 2° Grupo A, etc.) */
 const isTBD = (name) =>
-  !name || /^(ganador|perdedor|1[°º]|2[°º]|3[°º])/i.test(name.trim())
+  !name || /^(ganador|perdedor|\d+[°º])/i.test(name.trim())
+
+function AdminScoreInput({ value, onChange, style, className }) {
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    onChange(raw === '' ? '' : Number(raw))
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={value}
+      onChange={handleChange}
+      placeholder="–"
+      className={className}
+      style={style}
+    />
+  )
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -452,8 +471,10 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
   const msg = saveMsg[m.id]
   const isKnockoutRound = KNOCKOUT_ROUND_NAMES.has(m.round_name)
   const { isDraw, penaltyWinner: curPenaltyWinner, hasExtraTime: curExtraTime } = getResultDraft(m)
-  const showPenaltySelector = isKnockoutRound && isDraw && !isTBD(m.home_team) && !isTBD(m.away_team)
-  const showExtraTimePicker = isKnockoutRound && !isTBD(m.home_team) && !isTBD(m.away_team)
+  const scoresEntered = curHome !== '' && curAway !== ''
+  const showKnockoutExtras = isKnockoutRound && scoresEntered
+  const showPenaltySelector = showKnockoutExtras && isDraw
+  const showExtraTimePicker = showKnockoutExtras
   const saveReady = canSaveResult(m)
   const isFinished = status === 'finished'
   const rowStyle = ROW_STYLE[status]
@@ -466,21 +487,27 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
     <>
       <div className="flex flex-col items-start lg:items-end gap-1.5">
         <div className="flex items-center gap-2 flex-wrap">
-          <input type="number" min="0" value={curHome}
-            onChange={(e) => {
-              setResult(m.id, 'home', e.target.value)
+          <AdminScoreInput
+            value={curHome}
+            onChange={(v) => {
+              setResult(m.id, 'home', v)
               setPenaltyWinners((p) => ({ ...p, [m.id]: null }))
               setExtraTimeMap((p) => ({ ...p, [m.id]: null }))
             }}
-            className={inputCls} style={inputStyle} placeholder="–" />
+            className={inputCls}
+            style={inputStyle}
+          />
           <span className="text-white/20 font-bold">–</span>
-          <input type="number" min="0" value={curAway}
-            onChange={(e) => {
-              setResult(m.id, 'away', e.target.value)
+          <AdminScoreInput
+            value={curAway}
+            onChange={(v) => {
+              setResult(m.id, 'away', v)
               setPenaltyWinners((p) => ({ ...p, [m.id]: null }))
               setExtraTimeMap((p) => ({ ...p, [m.id]: null }))
             }}
-            className={inputCls} style={inputStyle} placeholder="–" />
+            className={inputCls}
+            style={inputStyle}
+          />
           <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id] || !saveReady}
             className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
             style={isFinished
@@ -510,56 +537,56 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
       </div>
 
-      {showExtraTimePicker && (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
-          style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)' }}>
-          <span className="text-[10px] font-bold text-amber-400/60 uppercase tracking-wide">Alargue</span>
-          {isDraw ? (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-amber-400"
-              style={{ background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.5)' }}>
-              Sí (empate → penales)
-            </span>
-          ) : (
-            [true, false].map((opt) => (
-              <button key={String(opt)} type="button"
-                onClick={() => setExtraTimeMap((p) => ({ ...p, [m.id]: p[m.id] === opt ? null : opt }))}
-                className="px-2 py-0.5 rounded text-[10px] font-bold transition-all"
-                style={{
-                  background: curExtraTime === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
-                  border: curExtraTime === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
-                  color: curExtraTime === opt ? '#fbbf24' : 'rgba(255,255,255,0.35)',
-                }}>
-                {opt ? 'Sí' : 'No'}
-              </button>
-            ))
+      {showKnockoutExtras && (
+        <div className="mt-2 space-y-2 w-full max-w-md">
+          {showExtraTimePicker && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2"
+              style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)' }}>
+              <span className="text-xs font-bold text-amber-400/80 uppercase tracking-wide shrink-0">Alargue</span>
+              {isDraw ? (
+                <span className="px-3 py-1 rounded-md text-xs font-bold text-amber-400"
+                  style={{ background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.45)' }}>
+                  Sí (empate → penales)
+                </span>
+              ) : (
+                [true, false].map((opt) => (
+                  <button key={String(opt)} type="button"
+                    onClick={() => setExtraTimeMap((p) => ({ ...p, [m.id]: p[m.id] === opt ? null : opt }))}
+                    className="px-4 py-1.5 rounded-md text-xs font-bold transition-all min-w-[3rem]"
+                    style={{
+                      background: curExtraTime === opt ? 'rgba(251,191,36,0.25)' : '#1a1a1a',
+                      border: curExtraTime === opt ? '1px solid rgba(251,191,36,0.55)' : '1px solid #2a2a2a',
+                      color: curExtraTime === opt ? '#fbbf24' : 'rgba(255,255,255,0.5)',
+                    }}>
+                    {opt ? 'Sí' : 'No'}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {showPenaltySelector && (
+            <div className="rounded-lg px-3 py-2"
+              style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)' }}>
+              <p className="text-xs font-bold text-amber-400/80 uppercase tracking-wide mb-2">Gana por penales</p>
+              <div className="flex flex-wrap gap-2">
+                {[m.home_team, m.away_team].map((team) => (
+                  <button key={team} type="button"
+                    onClick={() => setPenaltyWinners((p) => ({ ...p, [m.id]: p[m.id] === team ? null : team }))}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                    style={{
+                      background: curPenaltyWinner === team ? 'rgba(251,191,36,0.22)' : '#1a1a1a',
+                      border: curPenaltyWinner === team ? '1px solid rgba(251,191,36,0.6)' : '1px solid #2a2a2a',
+                      color: curPenaltyWinner === team ? '#fbbf24' : 'rgba(255,255,255,0.55)',
+                    }}>
+                    {!isTBD(team) && <FlagImg name={team} size={16} />}
+                    <span className="max-w-[8rem] truncate text-left">{team}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-      )}
-
-      {showPenaltySelector && (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
-          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
-          <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">Gana por penales</span>
-          {[m.home_team, m.away_team].map((team) => (
-            <button key={team} type="button"
-              onClick={() => setPenaltyWinners((p) => ({ ...p, [m.id]: p[m.id] === team ? null : team }))}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition-all"
-              style={{
-                background: curPenaltyWinner === team ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
-                border: curPenaltyWinner === team ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
-                color: curPenaltyWinner === team ? '#fbbf24' : 'rgba(255,255,255,0.35)',
-              }}>
-              <FlagImg name={team} size={12} />
-              <span className="max-w-[4.5rem] truncate">{team}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {isKnockoutRound && curHome !== '' && curAway !== '' && !saveReady && (
-        <p className="text-[10px] text-amber-400/80 mt-1.5">
-          {isDraw ? 'Selecciona quién ganó por penales' : 'Indica si hubo alargue (Sí o No)'}
-        </p>
       )}
 
       {isFinished && isKnockoutRound && (

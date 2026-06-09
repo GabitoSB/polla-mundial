@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
-import { deleteMatch, getMatchPredictions, getMatches, updateResult, updateSchedule } from '../api/matches'
+import { clearResult, getMatchPredictions, getMatches, updateResult, updateSchedule } from '../api/matches'
 import BracketDiagram from '../components/BracketDiagram'
 import ViewLayoutToggle from '../components/ViewLayoutToggle'
 import { sortMatches } from '../utils/matchSort'
@@ -336,82 +336,112 @@ function MatchPredictionsPanel({ match, isKnockout }) {
 }
 
 function useMatchResultEditor(onRefresh) {
-  const [deleting, setDeleting] = useState(null)
   const [results, setResults] = useState({})
   const [penaltyWinners, setPenaltyWinners] = useState({})
   const [extraTimeMap, setExtraTimeMap] = useState({})
   const [saving, setSaving] = useState({})
+  const [clearing, setClearing] = useState({})
   const [saveMsg, setSaveMsg] = useState({})
 
   const setResult = (id, field, val) =>
     setResults((r) => ({ ...r, [id]: { ...(r[id] ?? {}), [field]: val } }))
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este partido? También se eliminarán las predicciones asociadas.')) return
-    setDeleting(id)
+  const handleClearResult = async (m) => {
+    if (!confirm('¿Limpiar el resultado de este partido? Se borrarán los puntos asignados.')) return
+    setClearing((s) => ({ ...s, [m.id]: true }))
     try {
-      await deleteMatch(id)
+      await clearResult(m.id)
+      setResults((r) => { const next = { ...r }; delete next[m.id]; return next })
+      setPenaltyWinners((p) => { const next = { ...p }; delete next[m.id]; return next })
+      setExtraTimeMap((p) => { const next = { ...p }; delete next[m.id]; return next })
+      setSaveMsg((s) => ({ ...s, [m.id]: 'cleared' }))
+      setTimeout(() => setSaveMsg((s) => ({ ...s, [m.id]: null })), 3000)
       onRefresh()
     } catch (err) {
-      alert(err.response?.data?.detail ?? 'Error al eliminar')
+      const detail = err.response?.data?.detail
+      setSaveMsg((s) => ({
+        ...s,
+        [m.id]: typeof detail === 'string' ? detail : 'error',
+      }))
+      setTimeout(() => setSaveMsg((s) => ({ ...s, [m.id]: null })), 5000)
     } finally {
-      setDeleting(null)
+      setClearing((s) => ({ ...s, [m.id]: false }))
     }
   }
 
-  const handleSaveResult = async (m) => {
+  const getResultDraft = (m) => {
     const r = results[m.id]
     const home = r?.home !== undefined ? r.home : m.home_score
     const away = r?.away !== undefined ? r.away : m.away_score
-    if (home === '' || home === null || home === undefined) return
-    if (away === '' || away === null || away === undefined) return
-
     const isKnockoutRound = KNOCKOUT_ROUND_NAMES.has(m.round_name)
-    const isDraw = Number(home) === Number(away)
+    const isDraw = home !== '' && away !== '' && Number(home) === Number(away)
     const penaltyWinner = (isKnockoutRound && isDraw)
-      ? (penaltyWinners[m.id] ?? m.penalty_winner ?? null)
+      ? (penaltyWinners[m.id] !== undefined ? penaltyWinners[m.id] : (m.penalty_winner ?? null))
       : null
     const hasExtraTime = isKnockoutRound
-      ? (extraTimeMap[m.id] !== undefined ? extraTimeMap[m.id] : m.has_extra_time ?? null)
+      ? (isDraw ? true : (extraTimeMap[m.id] !== undefined ? extraTimeMap[m.id] : (m.has_extra_time ?? null)))
       : null
+    return { home, away, isKnockoutRound, isDraw, penaltyWinner, hasExtraTime }
+  }
+
+  const canSaveResult = (m) => {
+    const { home, away, isKnockoutRound, isDraw, penaltyWinner, hasExtraTime } = getResultDraft(m)
+    if (home === '' || home === null || home === undefined) return false
+    if (away === '' || away === null || away === undefined) return false
+    if (!isKnockoutRound) return true
+    if (isDraw) return !!penaltyWinner
+    return hasExtraTime !== null && hasExtraTime !== undefined
+  }
+
+  const handleSaveResult = async (m) => {
+    const { home, away, isKnockoutRound, isDraw, penaltyWinner, hasExtraTime } = getResultDraft(m)
+    if (!canSaveResult(m)) return
 
     setSaving((s) => ({ ...s, [m.id]: true }))
     try {
       await updateResult(m.id, {
         home_score: Number(home),
         away_score: Number(away),
-        penalty_winner: penaltyWinner,
-        has_extra_time: hasExtraTime,
+        penalty_winner: isKnockoutRound && isDraw ? penaltyWinner : null,
+        has_extra_time: isKnockoutRound ? hasExtraTime : null,
       })
       setSaveMsg((s) => ({ ...s, [m.id]: 'ok' }))
       setTimeout(() => setSaveMsg((s) => ({ ...s, [m.id]: null })), 3000)
       onRefresh()
-    } catch {
-      setSaveMsg((s) => ({ ...s, [m.id]: 'error' }))
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setSaveMsg((s) => ({
+        ...s,
+        [m.id]: typeof detail === 'string' ? detail : 'error',
+      }))
+      setTimeout(() => setSaveMsg((s) => ({ ...s, [m.id]: null })), 5000)
     } finally {
       setSaving((s) => ({ ...s, [m.id]: false }))
     }
   }
 
   return {
-    deleting,
     results,
     penaltyWinners,
     extraTimeMap,
     saving,
+    clearing,
     saveMsg,
     setResult,
     setPenaltyWinners,
     setExtraTimeMap,
-    handleDelete,
+    handleClearResult,
     handleSaveResult,
+    canSaveResult,
+    getResultDraft,
   }
 }
 
-function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelete = true }) {
+function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
   const {
-    deleting, results, penaltyWinners, extraTimeMap, saving, saveMsg,
-    setResult, setPenaltyWinners, setExtraTimeMap, handleDelete, handleSaveResult,
+    results, penaltyWinners, extraTimeMap, saving, clearing, saveMsg,
+    setResult, setPenaltyWinners, setExtraTimeMap, handleClearResult, handleSaveResult,
+    canSaveResult, getResultDraft,
   } = editor
 
   const status = matchStatus(m)
@@ -421,10 +451,10 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
   const curAway = r.away !== undefined ? r.away : (m.away_score ?? '')
   const msg = saveMsg[m.id]
   const isKnockoutRound = KNOCKOUT_ROUND_NAMES.has(m.round_name)
-  const isDraw = curHome !== '' && curAway !== '' && Number(curHome) === Number(curAway)
+  const { isDraw, penaltyWinner: curPenaltyWinner, hasExtraTime: curExtraTime } = getResultDraft(m)
   const showPenaltySelector = isKnockoutRound && isDraw && !isTBD(m.home_team) && !isTBD(m.away_team)
-  const curPenaltyWinner = penaltyWinners[m.id] !== undefined ? penaltyWinners[m.id] : (m.penalty_winner ?? null)
-  const curExtraTime = extraTimeMap[m.id] !== undefined ? extraTimeMap[m.id] : (m.has_extra_time ?? null)
+  const showExtraTimePicker = isKnockoutRound && !isTBD(m.home_team) && !isTBD(m.away_team)
+  const saveReady = canSaveResult(m)
   const isFinished = status === 'finished'
   const rowStyle = ROW_STYLE[status]
   const inputCls = 'w-12 text-center rounded-lg px-2 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors'
@@ -437,13 +467,21 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
       <div className="flex flex-col items-start lg:items-end gap-1.5">
         <div className="flex items-center gap-2 flex-wrap">
           <input type="number" min="0" value={curHome}
-            onChange={(e) => { setResult(m.id, 'home', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+            onChange={(e) => {
+              setResult(m.id, 'home', e.target.value)
+              setPenaltyWinners((p) => ({ ...p, [m.id]: null }))
+              setExtraTimeMap((p) => ({ ...p, [m.id]: null }))
+            }}
             className={inputCls} style={inputStyle} placeholder="–" />
           <span className="text-white/20 font-bold">–</span>
           <input type="number" min="0" value={curAway}
-            onChange={(e) => { setResult(m.id, 'away', e.target.value); setPenaltyWinners((p) => ({ ...p, [m.id]: null })) }}
+            onChange={(e) => {
+              setResult(m.id, 'away', e.target.value)
+              setPenaltyWinners((p) => ({ ...p, [m.id]: null }))
+              setExtraTimeMap((p) => ({ ...p, [m.id]: null }))
+            }}
             className={inputCls} style={inputStyle} placeholder="–" />
-          <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id]}
+          <button type="button" onClick={() => handleSaveResult(m)} disabled={saving[m.id] || !saveReady}
             className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
             style={isFinished
               ? { background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.35)' }
@@ -451,35 +489,57 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
             }>
             {saving[m.id] ? '…' : isFinished ? 'Corregir' : 'Guardar'}
           </button>
+          {isFinished && (
+            <button
+              type="button"
+              onClick={() => handleClearResult(m)}
+              disabled={clearing[m.id] || saving[m.id]}
+              className="text-white/50 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap disabled:opacity-30"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #2a2a2a' }}
+              title="Quitar resultado y puntos"
+            >
+              {clearing[m.id] ? '…' : 'Limpiar'}
+            </button>
+          )}
           {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
-          {msg === 'error' && <span className="text-red-400 text-xs">Error</span>}
+          {msg === 'cleared' && <span className="text-amber-400 text-xs font-semibold">Sin resultado</span>}
+          {msg && msg !== 'ok' && msg !== 'cleared' && (
+            <span className="text-red-400 text-xs max-w-[10rem] leading-tight">{msg}</span>
+          )}
         </div>
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
       </div>
 
-      {isKnockoutRound && !isTBD(m.home_team) && !isTBD(m.away_team) && (
+      {showExtraTimePicker && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
           style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)' }}>
           <span className="text-[10px] font-bold text-amber-400/60 uppercase tracking-wide">Alargue</span>
-          {[true, false].map((opt) => (
-            <button key={String(opt)} type="button"
-              onClick={() => setExtraTimeMap((p) => ({ ...p, [m.id]: p[m.id] === opt ? null : opt }))}
-              className="px-2 py-0.5 rounded text-[10px] font-bold transition-all"
-              style={{
-                background: curExtraTime === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
-                border: curExtraTime === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
-                color: curExtraTime === opt ? '#fbbf24' : 'rgba(255,255,255,0.35)',
-              }}>
-              {opt ? 'Sí' : 'No'}
-            </button>
-          ))}
+          {isDraw ? (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-amber-400"
+              style={{ background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.5)' }}>
+              Sí (empate → penales)
+            </span>
+          ) : (
+            [true, false].map((opt) => (
+              <button key={String(opt)} type="button"
+                onClick={() => setExtraTimeMap((p) => ({ ...p, [m.id]: p[m.id] === opt ? null : opt }))}
+                className="px-2 py-0.5 rounded text-[10px] font-bold transition-all"
+                style={{
+                  background: curExtraTime === opt ? 'rgba(251,191,36,0.2)' : '#1a1a1a',
+                  border: curExtraTime === opt ? '1px solid rgba(251,191,36,0.5)' : '1px solid #2a2a2a',
+                  color: curExtraTime === opt ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+                }}>
+                {opt ? 'Sí' : 'No'}
+              </button>
+            ))
+          )}
         </div>
       )}
 
       {showPenaltySelector && (
         <div className="flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1.5 mt-2"
           style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
-          <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">Penales</span>
+          <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">Gana por penales</span>
           {[m.home_team, m.away_team].map((team) => (
             <button key={team} type="button"
               onClick={() => setPenaltyWinners((p) => ({ ...p, [m.id]: p[m.id] === team ? null : team }))}
@@ -493,6 +553,23 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
               <span className="max-w-[4.5rem] truncate">{team}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {isKnockoutRound && curHome !== '' && curAway !== '' && !saveReady && (
+        <p className="text-[10px] text-amber-400/80 mt-1.5">
+          {isDraw ? 'Selecciona quién ganó por penales' : 'Indica si hubo alargue (Sí o No)'}
+        </p>
+      )}
+
+      {isFinished && isKnockoutRound && (
+        <div className="text-[10px] text-white/40 mt-1.5 space-x-2">
+          {m.penalty_winner && (
+            <span>Penales: <span className="text-amber-400/80 font-semibold">{m.penalty_winner}</span></span>
+          )}
+          {m.has_extra_time != null && (
+            <span>Alargue: <span className="text-amber-400/80 font-semibold">{m.has_extra_time ? 'Sí' : 'No'}</span></span>
+          )}
         </div>
       )}
     </>
@@ -533,7 +610,7 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
       className={`border-l-4 px-5 py-4 ${rowStyle.border}`}
       style={{ borderBottom: '1px solid #1a1a1a', background: rowStyle.bg }}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_2rem] gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-start">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {m.match_number && (
@@ -554,20 +631,6 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false, showDelet
         </div>
 
         <div className="flex flex-col gap-2 lg:justify-self-end">{scoreControls}</div>
-
-        {showDelete && (
-          <div className="flex justify-center lg:justify-end pt-1">
-            {!isFinished ? (
-              <button type="button" onClick={() => handleDelete(m.id)} disabled={deleting === m.id}
-                className="text-red-500/50 hover:text-red-400 p-1.5 rounded-lg transition-colors text-xs disabled:opacity-40"
-                title="Eliminar partido">
-                {deleting === m.id ? '…' : '🗑️'}
-              </button>
-            ) : (
-              <span className="w-7" aria-hidden />
-            )}
-          </div>
-        )}
       </div>
 
       <MatchPredictionsPanel match={m} isKnockout={isKnockoutRound} />
@@ -744,7 +807,6 @@ function BracketTab({ matches, onRefresh }) {
             match={selected}
             editor={editor}
             onRefresh={onRefresh}
-            showDelete={false}
           />
         </div>
       )}

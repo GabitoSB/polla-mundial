@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import ProfileAvatarButton from './ProfileAvatarButton'
 
 const navLinkCls = ({ isActive }) =>
   'text-base font-semibold px-3 py-2 rounded-lg transition-all block w-full md:w-auto ' +
@@ -20,7 +21,7 @@ function BrandLink({ onClick, compact = false }) {
   return (
     <NavLink
       to="/"
-      className="flex flex-col items-center leading-tight group"
+      className="flex flex-col items-start leading-tight group"
       end
       onClick={onClick}
     >
@@ -104,9 +105,12 @@ export default function Navbar() {
           <div className="px-4 pb-4 space-y-1 border-t border-white/5 pt-3">
             {navItems}
             <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-3">
-              <p className={`text-sm font-semibold truncate ${user.is_admin ? 'text-teal-400' : 'text-on-dark-muted'}`}>
-                {user.username}
-              </p>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ProfileAvatarButton username={user.username} avatarUrl={user.avatar_url} size="sm" />
+                <p className={`text-sm font-semibold truncate ${user.is_admin ? 'text-teal-400' : 'text-on-dark-muted'}`}>
+                  {user.username}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -120,12 +124,11 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* ── Escritorio (sin cambios visuales) ── */}
+      {/* ── Escritorio ── */}
       <div className="hidden md:block max-w-6xl mx-auto px-5 py-4">
-        <div className="grid grid-cols-3 items-center">
-          <div />
+        <div className="flex items-center justify-between gap-8">
           <BrandLink />
-          <div className="flex items-center justify-end gap-5">
+          <div className="flex items-center justify-end gap-5 shrink-0">
             <NavLink to="/" end className={navLinkCls} style={navLinkStyle}>Partidos</NavLink>
             <NavLink to="/leaderboard" className={navLinkCls} style={navLinkStyle}>Tabla</NavLink>
             {user.is_admin && (
@@ -134,6 +137,7 @@ export default function Navbar() {
               </NavLink>
             )}
             <div className="flex items-center gap-3 pl-4" style={{ borderLeft: '1px solid #1e1e1e' }}>
+              <ProfileAvatarButton username={user.username} avatarUrl={user.avatar_url} size="sm" />
               <div className="text-right">
                 <p className={`text-sm font-semibold leading-none ${user.is_admin ? 'text-teal-400' : 'text-on-dark-muted'}`}>
                   {user.username}

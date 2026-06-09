@@ -165,6 +165,37 @@ def calculate_match_points(db: Session, match: Match) -> None:
     db.commit()
 
 
+def clear_match_result(db: Session, match: Match) -> None:
+    """Clears a match result, resets prediction points and recomputes user stats."""
+    if match.home_score is None and match.away_score is None:
+        return
+
+    predictions: list[Prediction] = (
+        db.query(Prediction).filter(Prediction.match_id == match.id).all()
+    )
+    affected_user_ids = {pred.user_id for pred in predictions}
+
+    match.home_score = None
+    match.away_score = None
+    match.penalty_winner = None
+    match.has_extra_time = None
+
+    for pred in predictions:
+        pred.points = None
+
+    db.flush()
+
+    _revert_bracket_propagation(db, match)
+
+    if match.round_name and match.round_name.startswith("Grupo "):
+        _refresh_group_knockout_slots(db, match.round_name)
+
+    for user_id in affected_user_ids:
+        _recompute_user_stats(db, user_id)
+
+    db.commit()
+
+
 # ── Bracket helpers ───────────────────────────────────────────────────────────
 
 def _propagate_bracket(db: Session, match: Match) -> None:
@@ -207,6 +238,44 @@ def _propagate_bracket(db: Session, match: Match) -> None:
             else:
                 target.away_team = loser
             db.flush()
+
+
+def _revert_bracket_propagation(db: Session, match: Match) -> None:
+    """Restore Ganador/Perdedor placeholders in downstream knockout slots."""
+    mn = match.match_number
+    if mn is None:
+        return
+
+    if mn in _WINNER_SLOT:
+        target_num, slot = _WINNER_SLOT[mn]
+        target = db.query(Match).filter(Match.match_number == target_num).first()
+        if target:
+            placeholder = f"Ganador P{mn}"
+            if slot == "home":
+                target.home_team = placeholder
+            else:
+                target.away_team = placeholder
+            db.flush()
+
+    if mn in _LOSER_SLOT:
+        target_num, slot = _LOSER_SLOT[mn]
+        target = db.query(Match).filter(Match.match_number == target_num).first()
+        if target:
+            placeholder = f"Perdedor P{mn}"
+            if slot == "home":
+                target.home_team = placeholder
+            else:
+                target.away_team = placeholder
+            db.flush()
+
+
+def _refresh_group_knockout_slots(db: Session, group_name: str) -> None:
+    """Re-propagate dieciseisavos slots when the group still has all results."""
+    group_matches = db.query(Match).filter(Match.round_name == group_name).all()
+    if not group_matches:
+        return
+    if all(m.home_score is not None and m.away_score is not None for m in group_matches):
+        _propagate_group_results(db, group_name)
 
 
 def _propagate_group_results(db: Session, group_name: str) -> None:

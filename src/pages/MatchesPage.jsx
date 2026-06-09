@@ -5,6 +5,7 @@ import HowToPlayModal from '../components/HowToPlayModal'
 import MatchCard from '../components/MatchCard'
 import ViewLayoutToggle from '../components/ViewLayoutToggle'
 import { useAuth } from '../context/AuthContext'
+import { MATCH_CARD_WIDTH_CSS } from '../utils/matchCardLayout'
 import { sortMatches } from '../utils/matchSort'
 
 // ── Phase definitions (order matters) ────────────────────────────────────────
@@ -106,7 +107,7 @@ export default function MatchesPage() {
     <div className="max-w-6xl mx-auto px-3 py-4 sm:px-4 sm:py-6">
       {/* Stats bar — compacto en una sola fila */}
       <div
-        className="rounded-2xl px-3 py-3 sm:px-5 sm:py-3.5 mb-4 flex items-stretch gap-3 sm:gap-0"
+        className="rounded-2xl px-3 py-3 sm:px-5 sm:py-3.5 mb-4 flex items-stretch justify-end gap-3 sm:gap-0"
         style={{ background: '#111111', border: '1px solid #1e1e1e' }}
       >
         <div
@@ -119,7 +120,7 @@ export default function MatchesPage() {
           </span>
         </div>
 
-        <div className="flex flex-1 items-center justify-between sm:justify-start sm:gap-8 min-w-0">
+        <div className="flex items-center justify-end gap-4 sm:gap-8 min-w-0">
           <PointsStat label="Exactos" value={user.exact_results} hint="×5" color="text-green-400" />
           <PointsStat label="Parciales" value={user.partial_score_hits} hint="×3" color="text-yellow-400" />
           <PointsStat label="Predicciones" value={Object.keys(predictions).length} color="text-on-dark" />
@@ -221,7 +222,7 @@ function GroupsView({ matches, predictions, onSaved, layout }) {
         <p className="text-xs font-semibold uppercase tracking-widest text-on-dark-muted px-1 text-center">
           Del más próximo al más lejano
         </p>
-        <div className="match-cards-grid">
+        <div className="match-cards-grid" style={MATCH_CARD_WIDTH_CSS}>
           {sorted.map((m) => (
             <MatchCard
               key={m.id}
@@ -257,7 +258,7 @@ function GroupsView({ matches, predictions, onSaved, layout }) {
             <div className="flex-1 h-px" style={{ background: '#1e1e1e' }} />
             <GroupProgress matches={groupMatches} />
           </div>
-          <div className="match-cards-grid">
+          <div className="match-cards-grid" style={MATCH_CARD_WIDTH_CSS}>
             {groupMatches.map((m) => (
               <MatchCard
                 key={m.id}
@@ -301,7 +302,7 @@ function PhaseView({ matches, predictions, onSaved }) {
                 {round}
               </h2>
             )}
-            <div className="match-cards-grid">
+            <div className="match-cards-grid" style={MATCH_CARD_WIDTH_CSS}>
               {roundMatches.map((m) => (
                 <MatchCard
                   key={m.id}

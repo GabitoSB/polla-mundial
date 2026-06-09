@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, LargeBinary, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -23,4 +23,13 @@ class User(Base):
     #             ej. predice 2-1 y sale 2-0  → el "2" del equipo local coincide
     partial_score_hits = Column(Integer, default=0, nullable=False)
 
+    avatar_data = Column(LargeBinary, nullable=True)
+    avatar_content_type = Column(String(50), nullable=True)
+
     predictions = relationship("Prediction", back_populates="user")
+
+    @property
+    def avatar_url(self) -> str | None:
+        if self.avatar_data:
+            return f"/auth/avatars/{self.id}"
+        return None

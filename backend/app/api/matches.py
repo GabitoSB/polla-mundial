@@ -8,6 +8,7 @@ from app.models.prediction import Prediction
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchScheduleUpdate
 from app.schemas.prediction import PredictionAdminResponse
+from app.services.knockout import is_knockout_round, normalize_knockout_result
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -105,15 +106,51 @@ def update_result(
     if not match:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
 
-    match.home_score = payload.home_score
-    match.away_score = payload.away_score
-    match.penalty_winner = payload.penalty_winner
-    match.has_extra_time = payload.has_extra_time
+    home_score = payload.home_score
+    away_score = payload.away_score
+    penalty_winner = payload.penalty_winner
+    has_extra_time = payload.has_extra_time
+
+    if is_knockout_round(match.round_name):
+        home_score, away_score, penalty_winner, has_extra_time = normalize_knockout_result(
+            match,
+            home_score,
+            away_score,
+            penalty_winner,
+            has_extra_time,
+        )
+    else:
+        penalty_winner = None
+        has_extra_time = None
+
+    match.home_score = home_score
+    match.away_score = away_score
+    match.penalty_winner = penalty_winner
+    match.has_extra_time = has_extra_time
     db.commit()
 
     # Trigger point calculation (imported here to avoid circular imports)
     from app.services.scoring import calculate_match_points
     calculate_match_points(db, match)
 
+    db.refresh(match)
+    return match
+
+
+@router.delete("/{match_id}/result", response_model=MatchResponse)
+def clear_result(
+    match_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    match = db.get(Match, match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    if match.home_score is None and match.away_score is None:
+        raise HTTPException(status_code=400, detail="Este partido no tiene resultado cargado")
+
+    from app.services.scoring import clear_match_result
+
+    clear_match_result(db, match)
     db.refresh(match)
     return match

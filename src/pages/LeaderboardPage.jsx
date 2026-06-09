@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getLeaderboard } from '../api/leaderboard'
+import UserAvatar from '../components/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 
 function InfoModal({ title, onClose, children }) {
@@ -290,11 +291,18 @@ export default function LeaderboardPage() {
                         <td className="px-2 sm:px-4 py-2.5 sm:py-3 font-bold text-slate-400 tabular-nums whitespace-nowrap">
                           {entry.rank}
                         </td>
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap max-w-[8rem] sm:max-w-none">
-                          <span className={`block truncate ${isMe ? 'text-teal-700 font-bold' : 'text-slate-800 font-medium'}`}>
-                            {entry.username}
-                            {isMe && <span className="ml-1 text-sm text-teal-600 font-semibold">(tú)</span>}
-                          </span>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap max-w-[10rem] sm:max-w-none">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <UserAvatar
+                              username={entry.username}
+                              avatarUrl={entry.avatar_url}
+                              size="sm"
+                            />
+                            <span className={`block truncate ${isMe ? 'text-teal-700 font-bold' : 'text-slate-800 font-medium'}`}>
+                              {entry.username}
+                              {isMe && <span className="ml-1 text-sm text-teal-600 font-semibold">(tú)</span>}
+                            </span>
+                          </div>
                           <span className="sm:hidden text-xs text-slate-400 mt-0.5 block">
                             {entry.exact_results} exactos · {entry.partial_score_hits} parc.
                           </span>

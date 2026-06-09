@@ -15,6 +15,7 @@ class UserResponse(BaseModel):
     total_points: int
     exact_results: int
     partial_score_hits: int
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -26,3 +27,16 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: int | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class MessageResponse(BaseModel):
+    message: str

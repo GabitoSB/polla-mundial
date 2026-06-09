@@ -296,7 +296,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
       {/* Teams + scores */}
       <div className="px-3 sm:px-4 py-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2">
+        <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
           <TeamLabel
             name={match.home_team}
             selectable={!isLocked && !hasResult && showPenaltyPicker}

@@ -16,6 +16,7 @@ class LeaderboardEntry(BaseModel):
     total_points: int
     exact_results: int
     partial_score_hits: int
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -45,6 +46,7 @@ def get_leaderboard(
             total_points=u.total_points,
             exact_results=u.exact_results,
             partial_score_hits=u.partial_score_hits,
+            avatar_url=u.avatar_url,
         )
         for idx, u in enumerate(users)
     ]

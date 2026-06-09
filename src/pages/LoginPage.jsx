@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { login, getMe } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
   const { saveLogin } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const passwordResetSuccess = location.state?.passwordReset
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -120,6 +122,24 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            <div className="text-right -mt-2">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-teal-400/90 hover:text-teal-300 transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+
+            {passwordResetSuccess && (
+              <div
+                className="border text-teal-300 text-sm px-4 py-3 rounded-xl"
+                style={{ background: 'rgba(0,120,100,0.15)', borderColor: 'rgba(20,184,166,0.3)' }}
+              >
+                Contraseña actualizada. Ya puedes iniciar sesión.
+              </div>
+            )}
 
             {error && (
               <div className="border text-red-400 text-sm px-4 py-3 rounded-xl" style={{ background: 'rgba(127,0,0,0.2)', borderColor: 'rgba(200,50,50,0.3)' }}>

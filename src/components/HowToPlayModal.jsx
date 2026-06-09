@@ -300,7 +300,11 @@ function HowToPlayContent() {
           ))}
         </div>
         <div className="rounded-xl bg-gradient-to-br from-amber-50 to-teal-50 border border-slate-200 px-5 py-4 space-y-3">
-          <p className="text-sm font-bold text-slate-800">Desde eliminatorias</p>
+          <p className="text-sm font-bold text-slate-800">Fase de grupos</p>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Solo puntos base: 5 (exacto), 3 (ganador o empate) o 0.
+          </p>
+          <p className="text-sm font-bold text-slate-800 pt-1">Eliminatorias</p>
           <div className="flex flex-wrap gap-2">
             {['+1 a +5 bono fase', '+2 alargue'].map((tag) => (
               <span key={tag} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/80 text-slate-600 border border-slate-200/80">
@@ -309,8 +313,9 @@ function HowToPlayContent() {
             ))}
           </div>
           <p className="text-sm text-slate-600 leading-relaxed">
-            Bonos solo si acertaste el resultado (3 o 5 pts base). Detalle completo en{' '}
-            <span className="font-semibold text-slate-800">Tabla de posiciones → Sistema de puntos</span>.
+            Los bonos se suman solo si acertaste el desenlace (3 o 5 pts base). Si fallas ganador/empate,
+            el partido vale 0 aunque acertes penales o alargue. Detalle en{' '}
+            <span className="font-semibold text-slate-800">Tabla → Sistema de puntos</span>.
           </p>
         </div>
       </TabPanel>

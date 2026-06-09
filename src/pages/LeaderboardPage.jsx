@@ -59,20 +59,24 @@ function PointsSystemContent() {
   return (
     <div className="space-y-5 text-sm text-slate-600 leading-relaxed">
       <p className="text-base text-slate-600">
-        En cada partido primero se calculan los <span className="font-semibold text-slate-800">puntos base</span>.
-        Desde eliminatorias puedes sumar <span className="font-semibold text-slate-800">bonos extra</span>, pero solo
-        si acertaste el resultado (3 o 5 pts base). Si fallas el desenlace, el partido vale{' '}
-        <span className="font-semibold">0 pts</span> en total.
+        En la <span className="font-semibold text-slate-800">fase de grupos</span> solo hay puntos base (5, 3 o 0).
+        En <span className="font-semibold text-slate-800">eliminatorias</span> se suman bonos extra sobre esos puntos base,
+        pero únicamente cuando acertaste el <span className="font-semibold text-slate-800">desenlace</span> del partido:
+        ganador, perdedor o empate en el marcador. No hace falta el marcador exacto: con 3 pts ya cuentas los bonos.
+      </p>
+      <p className="text-sm text-slate-500">
+        Si te equivocas en el desenlace (por ejemplo pronosticas que gana A y gana B), ese partido vale{' '}
+        <span className="font-semibold text-slate-700">0 pts</span> en total, aunque hayas acertado alargue o penales.
       </p>
 
       <section className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-1 text-sm text-slate-600">
         <p>
-          <span className="font-semibold text-slate-700">Apuestas:</span> cada jugador debe cargar sus pronósticos en
-          la plataforma. No se aceptan apuestas después del inicio del partido.
+          <span className="font-semibold text-slate-700">Pronósticos:</span> debes cargarlos antes del inicio de cada partido.
+          Después del pitido inicial la casilla se cierra.
         </p>
         <p>
-          <span className="font-semibold text-slate-700">Eliminatorias:</span> el marcador válido es el resultado final
-          del partido, incluyendo alargue si hubo. Los goles de la tanda de penales no cuentan en el marcador.
+          <span className="font-semibold text-slate-700">Eliminatorias:</span> el marcador cuenta el resultado tras 90 min
+          y alargue si hubo. Los goles de la tanda de penales no suman al marcador.
         </p>
       </section>
 
@@ -85,20 +89,20 @@ function PointsSystemContent() {
           <RuleRow
             pts="5 pts"
             ptsClass="text-emerald-600"
-            title="Resultado exacto"
-            desc="Aciertas los goles del local y del visitante tal como terminó el partido."
+            title="Marcador exacto"
+            desc="Aciertas los goles del local y del visitante."
           />
           <RuleRow
             pts="3 pts"
             ptsClass="text-amber-600"
-            title="Solo ganador o empate"
-            desc="Aciertas quién gana o si hay empate en el marcador, pero no el marcador completo."
+            title="Desenlace correcto"
+            desc="Aciertas quién gana o si hay empate, pero no el marcador completo. Ejemplo: pronosticas 2-1 y sale 3-2."
           />
           <RuleRow
             pts="0 pts"
             ptsClass="text-slate-400"
-            title="Otro"
-            desc="No acertaste el desenlace del partido. No sumas bonos de eliminatoria."
+            title="Desenlace incorrecto"
+            desc="No acertaste ganador ni empate. No sumas bonos de eliminatoria en ese partido."
           />
         </div>
       </section>
@@ -109,7 +113,7 @@ function PointsSystemContent() {
           Bono por clasificado (solo eliminatorias)
         </h3>
         <p className="mb-2 text-slate-600">
-          Por acertar quién avanza en cada ronda. Se suma encima de los 3 o 5 pts base:
+          Por acertar quién avanza a la siguiente ronda. Se suma encima de los 3 o 5 pts base:
         </p>
         <div className="grid grid-cols-2 gap-1.5 text-sm mb-3">
           {[
@@ -128,12 +132,13 @@ function PointsSystemContent() {
         </div>
         <div className="rounded-lg bg-amber-50 border border-amber-200/80 px-3 py-2.5 space-y-1.5">
           <p className="text-sm text-amber-900/90">
-            Si el marcador real tiene <span className="font-semibold">ganador</span>, basta con acertar el resultado
-            (3 o 5 pts base) para sumar el bono de la fase.
+            Si el partido tiene <span className="font-semibold">ganador en el marcador</span>, basta con acertar el
+            desenlace (3 o 5 pts base) para sumar el bono de la fase.
           </p>
           <p className="text-sm text-amber-900/90">
-            Si el marcador real es <span className="font-semibold">empate</span> y se define por penales, el bono solo
-            se otorga si acertaste el empate y el equipo que pasa por penales.
+            Si el partido termina <span className="font-semibold">empatado</span> y se define por penales, necesitas
+            haber pronosticado el empate <span className="font-semibold">y</span> el equipo que pasa por penales.
+            Acertar solo los penales sin el empate no alcanza.
           </p>
         </div>
       </section>
@@ -147,7 +152,7 @@ function PointsSystemContent() {
           pts="+2 pts"
           ptsClass="text-teal-600"
           title="¿Hubo alargue?"
-          desc="En cada partido eliminatorio. Con marcador con ganador eliges Sí/No; con empate (penales) se asume Sí. Si tu pronóstico coincide con el partido real, sumas 2 pts extra. Requiere 3 o 5 pts base en ese partido."
+          desc="Si pronosticas correctamente si hubo alargue (Sí/No), sumas 2 pts extra. Con empate en el marcador el alargue se asume Sí. Solo aplica cuando ya sumaste 3 o 5 pts base en ese mismo partido."
         />
       </section>
 
@@ -175,8 +180,13 @@ function PointsSystemContent() {
             <p className="text-base font-black text-slate-800 mt-1">Total: 12 pts</p>
           </div>
           <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
-            <p className="text-sm font-semibold text-slate-700 mb-0.5">Semifinal — pronosticaste 1-0 y salió 0-2</p>
-            <p className="text-sm text-slate-500">Resultado incorrecto</p>
+            <p className="text-sm font-semibold text-slate-700 mb-0.5">Semifinal — pronosticaste 1-0, salió 0-2 (aunque acertaste alargue)</p>
+            <p className="text-sm text-slate-500">Desenlace incorrecto → sin puntos base ni bonos</p>
+            <p className="text-base font-black text-slate-800 mt-1">Total: 0 pts</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
+            <p className="text-sm font-semibold text-slate-700 mb-0.5">Octavos — pronosticaste 0-1, salió 1-1 y pasó el visitante por penales</p>
+            <p className="text-sm text-slate-500">Desenlace incorrecto aunque acertaras los penales</p>
             <p className="text-base font-black text-slate-800 mt-1">Total: 0 pts</p>
           </div>
         </div>

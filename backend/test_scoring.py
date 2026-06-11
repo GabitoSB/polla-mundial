@@ -4,8 +4,8 @@ Uses timestamped usernames so each run is fully isolated.
 
 Scenarios tested:
   A) Exact result                          -> 5 pts, 1 exacto
-  B) Correct winner + partial goal hit     -> 3 pts, 1 parcial
-  C) Correct winner, no partial hit        -> 3 pts, 0 parciales
+  B) Correct winner, not exact             -> 3 pts, 1 parcial
+  C) Correct winner, not exact             -> 3 pts, 1 parcial
   D) Wrong outcome                         -> 0 pts
   E) Result correction -> points recalculated correctly
 """
@@ -82,14 +82,14 @@ assert by_label["a"]["total_points"] == 5,       "a: 5 pts (exacto)"
 assert by_label["a"]["exact_results"] == 1,      "a: 1 exacto"
 assert by_label["a"]["partial_score_hits"] == 0, "a: 0 parciales (es exacto)"
 
-# España 2-1 / pred (3-1) ganador + away hit -> 3 pts, 0 exactos, 1 parcial
+# España 2-1 / pred (3-1) ganador correcto -> 3 pts, 0 exactos, 1 parcial
 assert by_label["b"]["total_points"] == 3,       "b: 3 pts"
 assert by_label["b"]["exact_results"] == 0,      "b: 0 exactos"
-assert by_label["b"]["partial_score_hits"] == 1, "b: 1 parcial (away 1==1)"
+assert by_label["b"]["partial_score_hits"] == 1, "b: 1 parcial"
 
-# España 2-1 / pred (1-0) ganador, sin hit -> 3 pts, 0 exactos, 0 parciales
+# España 2-1 / pred (1-0) ganador correcto -> 3 pts, 0 exactos, 1 parcial
 assert by_label["c"]["total_points"] == 3,       "c: 3 pts"
-assert by_label["c"]["partial_score_hits"] == 0, "c: 0 parciales (1≠2, 0≠1)"
+assert by_label["c"]["partial_score_hits"] == 1, "c: 1 parcial"
 
 # España 2-1 / pred (0-2) resultado incorrecto -> 0 pts
 assert by_label["d"]["total_points"] == 0,       "d: 0 pts"
@@ -98,9 +98,9 @@ print("\n✓ Primera ronda de assertions OK")
 
 # ── Test result correction ────────────────────────────────────────────────────
 # Nuevo resultado: España 3-0 Inglaterra
-# a (2-1): local gana → 3 pts, sin parcial (2≠3, 1≠0)
-# b (3-1): local gana → 3 pts, parcial home (3==3 ✓)
-# c (1-0): local gana → 3 pts, parcial away (0==0 ✓)
+# a (2-1): local gana → 3 pts, 1 parcial
+# b (3-1): local gana → 3 pts, 1 parcial
+# c (1-0): local gana → 3 pts, 1 parcial
 # d (0-2): local pierde → 0 pts
 print("\nCorrigiendo resultado a España 3-0 Inglaterra...")
 r = requests.put(f"{BASE}/matches/{match_id}/result", headers=auth(admin_tok),
@@ -118,13 +118,13 @@ for label in "abcd":
 
 assert by_label2["a"]["total_points"] == 3,          "a: 3 pts (ganador local)"
 assert by_label2["a"]["exact_results"] == 0,         "a: 0 exactos"
-assert by_label2["a"]["partial_score_hits"] == 0,    "a: 0 parciales (2≠3, 1≠0)"
+assert by_label2["a"]["partial_score_hits"] == 1,    "a: 1 parcial"
 
 assert by_label2["b"]["total_points"] == 3,          "b: 3 pts"
-assert by_label2["b"]["partial_score_hits"] == 1,    "b: parcial home (3==3)"
+assert by_label2["b"]["partial_score_hits"] == 1,    "b: 1 parcial"
 
 assert by_label2["c"]["total_points"] == 3,          "c: 3 pts"
-assert by_label2["c"]["partial_score_hits"] == 1,    "c: parcial away (0==0)"
+assert by_label2["c"]["partial_score_hits"] == 1,    "c: 1 parcial"
 
 assert by_label2["d"]["total_points"] == 0,          "d: 0 pts"
 

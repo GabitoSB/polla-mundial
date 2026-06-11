@@ -127,9 +127,8 @@ def update_result(
     match.away_score = away_score
     match.penalty_winner = penalty_winner
     match.has_extra_time = has_extra_time
-    db.commit()
 
-    # Trigger point calculation (imported here to avoid circular imports)
+    # Score predictions and commit in one transaction (calculate_match_points commits).
     from app.services.scoring import calculate_match_points
     calculate_match_points(db, match)
 

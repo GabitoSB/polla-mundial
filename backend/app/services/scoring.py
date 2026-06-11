@@ -338,8 +338,8 @@ def _recompute_user_stats(db: Session, user_id: int) -> None:
     """
     Recalculates total_points, exact_results and partial_score_hits for a user
     by scanning ALL their scored predictions.
-    exact_results and partial_score_hits are based on the base score (ignoring bonus),
-    so the tiebreaker logic is fair regardless of which rounds were played.
+    exact_results  = marcador exacto (5 pts base).
+    partial_score_hits = ganador/empate correcto sin marcador exacto (3 pts base).
     """
     user = db.get(User, user_id)
     if user is None:
@@ -365,17 +365,20 @@ def _recompute_user_stats(db: Session, user_id: int) -> None:
         if not match or match.home_score is None or match.away_score is None:
             continue
 
-        # Tiebreaker 2: exact score (base 5 pts, regardless of bonus)
         if pred.predicted_home == match.home_score and pred.predicted_away == match.away_score:
             exact_results += 1
-
-        # Tiebreaker 3: correct winner/draw but not exact score
         elif _sign(pred.predicted_home - pred.predicted_away) == _sign(match.home_score - match.away_score):
-            home_hit = pred.predicted_home == match.home_score
-            away_hit = pred.predicted_away == match.away_score
-            if home_hit or away_hit:
-                partial_score_hits += 1
+            partial_score_hits += 1
 
     user.total_points = total_points
     user.exact_results = exact_results
     user.partial_score_hits = partial_score_hits
+
+
+def recompute_all_user_stats(db: Session) -> int:
+    """Recalculates leaderboard stats for every user. Returns users updated."""
+    user_ids = [row[0] for row in db.query(User.id).all()]
+    for user_id in user_ids:
+        _recompute_user_stats(db, user_id)
+    db.commit()
+    return len(user_ids)

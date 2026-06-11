@@ -19,8 +19,7 @@ class User(Base):
     total_points = Column(Integer, default=0, nullable=False)
     # Criterio 2: cantidad de resultados exactos (5 pts)
     exact_results = Column(Integer, default=0, nullable=False)
-    # Criterio 3: partidos donde acertó al menos un marcador de equipo
-    #             ej. predice 2-1 y sale 2-0  → el "2" del equipo local coincide
+    # Criterio 3: partidos con ganador/empate correcto pero sin marcador exacto (3 pts base)
     partial_score_hits = Column(Integer, default=0, nullable=False)
 
     avatar_data = Column(LargeBinary, nullable=True)

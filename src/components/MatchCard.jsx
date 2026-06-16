@@ -272,12 +272,12 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 ${borderCls}`}
+      className={`match-card rounded-2xl border transition-all duration-200 ${borderCls}`}
       style={{ background: '#111111' }}
     >
-      {/* Header — fase y fecha siempre en una fila */}
+      {/* Header */}
       <div
-        className={`flex flex-row items-center justify-between gap-2 px-3 py-1.5 rounded-t-2xl border-b flex-nowrap ${headerBorderCls}`}
+        className={`shrink-0 flex flex-row items-center justify-between gap-2 px-3 py-1.5 rounded-t-2xl border-b flex-nowrap ${headerBorderCls}`}
         style={{ background: headerBg }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -295,9 +295,9 @@ export default function MatchCard({ match, prediction, onSaved }) {
         </span>
       </div>
 
-      {/* Teams + scores */}
-      <div className="px-3 py-2.5">
-        <div className="flex flex-row items-center justify-center gap-2">
+      <div className="flex flex-col flex-1 min-h-0 px-3 py-2">
+        {/* Equipos + marcador */}
+        <div className="shrink-0 flex flex-row items-start justify-center gap-2">
           <TeamLabel
             name={match.home_team}
             selectable={!isLocked && !hasResult && showPenaltyPicker}
@@ -305,10 +305,10 @@ export default function MatchCard({ match, prediction, onSaved }) {
             onSelect={() => setPenaltyWinner(penaltyWinner === match.home_team ? null : match.home_team)}
           />
 
-          <div className="flex-shrink-0 flex items-center justify-center">
+          <div className="flex-shrink-0 flex items-center justify-center h-[3.25rem]">
             {hasResult || isLocked ? (
               <div
-                className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 min-w-[4.5rem]"
+                className="flex items-center justify-center gap-1.5 rounded-lg px-3 h-full min-w-[4.5rem]"
                 style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}
               >
                 {prediction ? (
@@ -318,11 +318,11 @@ export default function MatchCard({ match, prediction, onSaved }) {
                     <span className="text-xl font-black text-white">{prediction.predicted_away}</span>
                   </>
                 ) : (
-                  <span className="text-base text-white/20 px-1">–</span>
+                  <span className="text-base text-white/20">–</span>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 h-full">
                 <ScoreInput value={home} onChange={handleHomeChange} />
                 <span className="text-white/20 font-bold">–</span>
                 <ScoreInput value={away} onChange={handleAwayChange} />
@@ -338,74 +338,69 @@ export default function MatchCard({ match, prediction, onSaved }) {
           />
         </div>
 
-        {!isLocked && !hasResult && isKnockout && (
-          <ExtraTimePicker
-            value={predictedDraw ? true : extraTime}
-            onChange={setExtraTime}
-            locked={predictedDraw}
-          />
-        )}
+        {/* Zona media: alargue, resultado o espacio flexible */}
+        <div className="flex-1 min-h-0 flex flex-col justify-center overflow-hidden py-0.5">
+          {!isLocked && !hasResult && isKnockout && (
+            <ExtraTimePicker
+              value={predictedDraw ? true : extraTime}
+              onChange={setExtraTime}
+              locked={predictedDraw}
+            />
+          )}
 
-        {!isLocked && !hasResult && (
-          <div className="mt-2 flex flex-col items-center gap-1.5">
-            <button
-              onClick={handleSave}
-              disabled={saving || !canSave}
-              className="text-white text-sm font-semibold px-5 py-2 rounded-full transition-all disabled:opacity-30 w-full max-w-[10rem]"
-              style={{ background: 'linear-gradient(135deg, #00c9a7, #0057ff)', boxShadow: '0 2px 12px rgba(0,180,150,0.2)' }}
-            >
-              {saving ? 'Guardando…' : saved ? '✓ Guardado' : hasPrediction ? 'Actualizar' : 'Guardar'}
-            </button>
-            {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-          </div>
-        )}
-
-        {isLocked && (
-          <div className="mt-2 flex flex-col gap-1.5 text-center text-xs text-on-dark-muted">
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {points != null && pointsBadge(points)}
-              {hasResult ? (
-                <span>
-                  Resultado:{' '}
-                  <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
-                  {match.penalty_winner && (
-                    <span className="text-amber-400/80">
-                      {' '}· {match.penalty_winner} (pen.)
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span className="text-[11px] bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">
-                  Cerrado
-                </span>
+          {isLocked && (
+            <div className="text-center text-[11px] leading-snug text-on-dark-muted space-y-0.5 px-0.5">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {points != null && pointsBadge(points)}
+                {hasResult ? (
+                  <span>
+                    Resultado:{' '}
+                    <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
+                    {match.penalty_winner && (
+                      <span className="text-amber-400/80"> · {match.penalty_winner}</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2 py-px rounded-full">
+                    Cerrado
+                  </span>
+                )}
+              </div>
+              {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
+                <p className="truncate">
+                  Penales:{' '}
+                  <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
+                    {prediction.predicted_penalty_winner}
+                  </span>
+                </p>
+              )}
+              {hasResult && isKnockout && prediction?.predicted_extra_time != null && match.has_extra_time != null && (
+                <p className="truncate">
+                  Alargue: {prediction.predicted_extra_time ? 'Sí' : 'No'} / real {match.has_extra_time ? 'Sí' : 'No'}
+                </p>
               )}
             </div>
-            {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
-              <p>
-                Tu penales:{' '}
-                <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-                  {prediction.predicted_penalty_winner}
-                </span>
-              </p>
-            )}
-            {hasResult && isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time != null && (
-              <p className="leading-snug">
-                Alargue:{' '}
-                <span className={prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400 font-semibold' : 'text-on-dark-subtle'}>
-                  {prediction.predicted_extra_time ? 'Sí' : 'No'}
-                </span>
-                {' / '}
-                real {match.has_extra_time ? 'Sí' : 'No'}
-              </p>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
-        {isLocked && (
-          <div className="mt-2 pt-2 w-full border-t border-white/5">
+        {/* Pie fijo: Guardar o Ver predicciones */}
+        <div className="shrink-0 pt-1.5 border-t border-white/5">
+          {isLocked ? (
             <MatchPredictionsPanel match={match} variant="modal" />
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={handleSave}
+                disabled={saving || !canSave}
+                className="w-full text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-all disabled:opacity-30"
+                style={{ background: 'linear-gradient(135deg, #00c9a7, #0057ff)', boxShadow: '0 2px 10px rgba(0,180,150,0.18)' }}
+              >
+                {saving ? 'Guardando…' : saved ? '✓ Guardado' : hasPrediction ? 'Actualizar' : 'Guardar'}
+              </button>
+              {error && <p className="text-red-400 text-[10px] text-center leading-tight">{error}</p>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

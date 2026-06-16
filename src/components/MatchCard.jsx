@@ -272,7 +272,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 ${borderCls}`}
+      className={`rounded-2xl border transition-all duration-200 flex flex-col h-full ${borderCls}`}
       style={{ background: '#111111' }}
     >
       {/* Header — fase y fecha siempre en una fila */}
@@ -296,7 +296,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
       </div>
 
       {/* Teams + scores */}
-      <div className="px-3 sm:px-4 py-4">
+      <div className="px-3 sm:px-4 py-4 flex flex-col flex-1 min-h-0">
         <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
           <TeamLabel
             name={match.home_team}
@@ -305,9 +305,12 @@ export default function MatchCard({ match, prediction, onSaved }) {
             onSelect={() => setPenaltyWinner(penaltyWinner === match.home_team ? null : match.home_team)}
           />
 
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {hasResult ? (
-              <div className="flex items-center gap-2 rounded-xl px-4 py-2" style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}>
+          <div className="flex-shrink-0 flex items-center justify-center min-h-[3.25rem]">
+            {hasResult || isLocked ? (
+              <div
+                className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 min-w-[5.5rem] min-h-[3.25rem]"
+                style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}
+              >
                 {prediction ? (
                   <>
                     <span className="text-2xl font-black text-white">{prediction.predicted_home}</span>
@@ -317,13 +320,6 @@ export default function MatchCard({ match, prediction, onSaved }) {
                 ) : (
                   <span className="text-lg text-white/20 px-2">–</span>
                 )}
-              </div>
-            ) : isLocked ? (
-              <div className="flex flex-col items-center gap-1 px-2">
-                <span className="text-lg font-bold text-on-dark-muted">
-                  {prediction ? `${prediction.predicted_home}–${prediction.predicted_away}` : '–'}
-                </span>
-                <span className="text-sm bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2.5 py-0.5 rounded-full">Cerrado</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -351,7 +347,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
         )}
 
         {/* Points badge + save button */}
-        <div className="mt-3 flex items-center justify-center gap-3">
+        <div className="mt-3 min-h-[2.75rem] flex items-center justify-center gap-3">
           {points != null && pointsBadge(points)}
 
           {!isLocked && !hasResult && (
@@ -368,44 +364,56 @@ export default function MatchCard({ match, prediction, onSaved }) {
           {error && <p className="text-red-400 text-sm">{error}</p>}
         </div>
 
-        {/* Resultado oficial + ganador por penales */}
-        {hasResult && (
-          <div className="mt-2 text-center text-sm text-on-dark-muted">
-            Resultado: <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
-            {match.penalty_winner && (
-              <span className="ml-2 text-amber-400/70">· Penales: <span className="font-semibold">{match.penalty_winner}</span></span>
-            )}
-          </div>
-        )}
-
-        {/* Predicted penalty winner display (after result) */}
-        {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
-          <div className="mt-1 text-center text-sm text-on-dark-muted">
-            Tu penales: <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-              {prediction.predicted_penalty_winner}
-            </span>
-          </div>
-        )}
-
-        {/* Extra time prediction display (after result for knockout matches) */}
-        {hasResult && isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time !== null && match.has_extra_time !== undefined && (
-          <div className="mt-1 text-center text-sm text-on-dark-muted">
-            Alargue: tu predicción{' '}
-            <span className={`font-semibold ${prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-              {prediction.predicted_extra_time === true ? 'Sí' : prediction.predicted_extra_time === false ? 'No' : '—'}
-            </span>
-            {' · '}real{' '}
-            <span className="font-semibold text-on-dark">
-              {match.has_extra_time ? 'Sí' : 'No'}
-            </span>
-            {prediction.predicted_extra_time === match.has_extra_time && (
-              <span className="text-amber-400"> · +2 pts</span>
+        {/* Estado / resultado — altura fija para alinear el pie de tarjeta */}
+        {(isLocked || hasResult) && (
+          <div className="mt-2 min-h-[4.5rem] flex flex-col items-center justify-center gap-1 text-center text-sm text-on-dark-muted">
+            {hasResult ? (
+              <>
+                <div>
+                  Resultado:{' '}
+                  <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
+                  {match.penalty_winner && (
+                    <span className="ml-2 text-amber-400/70">
+                      · Penales: <span className="font-semibold">{match.penalty_winner}</span>
+                    </span>
+                  )}
+                </div>
+                {prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
+                  <div>
+                    Tu penales:{' '}
+                    <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
+                      {prediction.predicted_penalty_winner}
+                    </span>
+                  </div>
+                )}
+                {isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time !== null && match.has_extra_time !== undefined && (
+                  <div>
+                    Alargue: tu predicción{' '}
+                    <span className={`font-semibold ${prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
+                      {prediction.predicted_extra_time === true ? 'Sí' : prediction.predicted_extra_time === false ? 'No' : '—'}
+                    </span>
+                    {' · '}real{' '}
+                    <span className="font-semibold text-on-dark">
+                      {match.has_extra_time ? 'Sí' : 'No'}
+                    </span>
+                    {prediction.predicted_extra_time === match.has_extra_time && (
+                      <span className="text-amber-400"> · +2 pts</span>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="text-sm bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2.5 py-0.5 rounded-full">
+                Cerrado
+              </span>
             )}
           </div>
         )}
 
         {isLocked && (
-          <MatchPredictionsPanel match={match} variant="modal" />
+          <div className="mt-auto pt-3 w-full border-t border-white/5">
+            <MatchPredictionsPanel match={match} variant="modal" />
+          </div>
         )}
       </div>
     </div>

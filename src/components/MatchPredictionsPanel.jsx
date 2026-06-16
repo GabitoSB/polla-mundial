@@ -233,7 +233,7 @@ export default function MatchPredictionsPanel({
         <button
           type="button"
           onClick={openPanel}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
+          className="w-full text-xs font-semibold px-3 py-2 rounded-lg transition-all hover:brightness-110"
           style={{
             background: 'rgba(59,130,246,0.12)',
             border: '1px solid rgba(59,130,246,0.3)',

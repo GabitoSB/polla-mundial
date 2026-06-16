@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin, get_current_user
 from app.core.database import get_db
 from app.models.match import Match
-from app.models.prediction import Prediction
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchScheduleUpdate
 from app.schemas.prediction import PredictionAdminResponse
 from app.services.knockout import is_knockout_round, normalize_knockout_result
+from app.services.match_predictions import assert_match_predictions_visible, list_match_predictions as fetch_match_predictions
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -22,37 +22,15 @@ def list_matches(db: Session = Depends(get_db), _: User = Depends(get_current_us
 def list_match_predictions(
     match_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_user),
 ):
-    """Predicciones de todos los usuarios para un partido (solo lectura, admin)."""
+    """Predicciones de todos los usuarios para un partido (solo lectura)."""
     match = db.get(Match, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
 
-    rows = (
-        db.query(Prediction, User.username)
-        .join(User, Prediction.user_id == User.id)
-        .filter(Prediction.match_id == match_id)
-        .order_by(User.username)
-        .all()
-    )
-
-    return [
-        PredictionAdminResponse(
-            id=pred.id,
-            user_id=pred.user_id,
-            username=username,
-            match_id=pred.match_id,
-            predicted_home=pred.predicted_home,
-            predicted_away=pred.predicted_away,
-            predicted_penalty_winner=pred.predicted_penalty_winner,
-            predicted_extra_time=pred.predicted_extra_time,
-            points=pred.points,
-            created_at=pred.created_at,
-            updated_at=pred.updated_at,
-        )
-        for pred, username in rows
-    ]
+    assert_match_predictions_visible(match, is_admin=current_user.is_admin)
+    return fetch_match_predictions(db, match_id)
 
 
 @router.post("/", response_model=MatchResponse, status_code=status.HTTP_201_CREATED)

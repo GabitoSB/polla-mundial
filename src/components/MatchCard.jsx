@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPrediction, updatePrediction } from '../api/predictions'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
+import MatchPredictionsPanel from './MatchPredictionsPanel'
 
 const KNOCKOUT_ROUNDS = new Set([
   'Dieciseisavos', 'Octavos de Final', 'Cuartos de Final',
@@ -401,6 +402,10 @@ export default function MatchCard({ match, prediction, onSaved }) {
               <span className="text-amber-400"> · +2 pts</span>
             )}
           </div>
+        )}
+
+        {isLocked && (
+          <MatchPredictionsPanel match={match} />
         )}
       </div>
     </div>

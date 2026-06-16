@@ -32,7 +32,7 @@ class PredictionResponse(BaseModel):
 
 
 class PredictionAdminResponse(BaseModel):
-    """Predicción de un usuario, visible solo para administradores."""
+    """Predicción de un usuario con nombre, para listados de solo lectura."""
 
     id: int
     user_id: int

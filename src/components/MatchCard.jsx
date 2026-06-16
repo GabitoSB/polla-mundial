@@ -405,7 +405,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
         )}
 
         {isLocked && (
-          <MatchPredictionsPanel match={match} />
+          <MatchPredictionsPanel match={match} variant="modal" />
         )}
       </div>
     </div>

@@ -124,7 +124,7 @@ function ExtraTimePicker({ value, onChange, locked = false }) {
   const display = locked ? true : value
 
   return (
-    <div className="mt-2 flex items-center justify-center gap-2">
+    <div className="mt-1.5 flex items-center justify-center gap-2">
       <span className="text-xs font-bold text-on-dark-muted uppercase tracking-wider shrink-0">
         Alargue
       </span>
@@ -161,8 +161,8 @@ function pointsBadge(points) {
     points >= 3 ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30' :
                   'bg-red-500/20 text-red-400 border-red-500/30'
   return (
-    <span className={`border text-sm font-bold px-2.5 py-1 rounded-full ${color}`}>
-      +{points} puntos
+    <span className={`border text-xs font-bold px-2 py-0.5 rounded-full ${color}`}>
+      +{points} pts
     </span>
   )
 }
@@ -272,12 +272,12 @@ export default function MatchCard({ match, prediction, onSaved }) {
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 flex flex-col h-full ${borderCls}`}
+      className={`rounded-2xl border transition-all duration-200 ${borderCls}`}
       style={{ background: '#111111' }}
     >
       {/* Header — fase y fecha siempre en una fila */}
       <div
-        className={`flex flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 rounded-t-2xl border-b flex-nowrap ${headerBorderCls}`}
+        className={`flex flex-row items-center justify-between gap-2 px-3 py-1.5 rounded-t-2xl border-b flex-nowrap ${headerBorderCls}`}
         style={{ background: headerBg }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -296,8 +296,8 @@ export default function MatchCard({ match, prediction, onSaved }) {
       </div>
 
       {/* Teams + scores */}
-      <div className="px-3 sm:px-4 py-4 flex flex-col flex-1 min-h-0">
-        <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
+      <div className="px-3 py-2.5">
+        <div className="flex flex-row items-center justify-center gap-2">
           <TeamLabel
             name={match.home_team}
             selectable={!isLocked && !hasResult && showPenaltyPicker}
@@ -305,26 +305,26 @@ export default function MatchCard({ match, prediction, onSaved }) {
             onSelect={() => setPenaltyWinner(penaltyWinner === match.home_team ? null : match.home_team)}
           />
 
-          <div className="flex-shrink-0 flex items-center justify-center min-h-[3.25rem]">
+          <div className="flex-shrink-0 flex items-center justify-center">
             {hasResult || isLocked ? (
               <div
-                className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 min-w-[5.5rem] min-h-[3.25rem]"
+                className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 min-w-[4.5rem]"
                 style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}
               >
                 {prediction ? (
                   <>
-                    <span className="text-2xl font-black text-white">{prediction.predicted_home}</span>
-                    <span className="text-white/20">–</span>
-                    <span className="text-2xl font-black text-white">{prediction.predicted_away}</span>
+                    <span className="text-xl font-black text-white">{prediction.predicted_home}</span>
+                    <span className="text-white/20 text-sm">–</span>
+                    <span className="text-xl font-black text-white">{prediction.predicted_away}</span>
                   </>
                 ) : (
-                  <span className="text-lg text-white/20 px-2">–</span>
+                  <span className="text-base text-white/20 px-1">–</span>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <ScoreInput value={home} onChange={handleHomeChange} />
-                <span className="text-white/20 font-bold text-lg">–</span>
+                <span className="text-white/20 font-bold">–</span>
                 <ScoreInput value={away} onChange={handleAwayChange} />
               </div>
             )}
@@ -346,72 +346,63 @@ export default function MatchCard({ match, prediction, onSaved }) {
           />
         )}
 
-        {/* Points badge + save button */}
-        <div className="mt-3 min-h-[2.75rem] flex items-center justify-center gap-3">
-          {points != null && pointsBadge(points)}
-
-          {!isLocked && !hasResult && (
+        {!isLocked && !hasResult && (
+          <div className="mt-2 flex flex-col items-center gap-1.5">
             <button
               onClick={handleSave}
               disabled={saving || !canSave}
-              className="text-white text-base font-semibold px-5 py-2.5 rounded-full transition-all disabled:opacity-30 min-h-[44px]"
+              className="text-white text-sm font-semibold px-5 py-2 rounded-full transition-all disabled:opacity-30 w-full max-w-[10rem]"
               style={{ background: 'linear-gradient(135deg, #00c9a7, #0057ff)', boxShadow: '0 2px 12px rgba(0,180,150,0.2)' }}
             >
               {saving ? 'Guardando…' : saved ? '✓ Guardado' : hasPrediction ? 'Actualizar' : 'Guardar'}
             </button>
-          )}
+            {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+          </div>
+        )}
 
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-        </div>
-
-        {/* Estado / resultado — altura fija para alinear el pie de tarjeta */}
-        {(isLocked || hasResult) && (
-          <div className="mt-2 min-h-[4.5rem] flex flex-col items-center justify-center gap-1 text-center text-sm text-on-dark-muted">
-            {hasResult ? (
-              <>
-                <div>
+        {isLocked && (
+          <div className="mt-2 flex flex-col gap-1.5 text-center text-xs text-on-dark-muted">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {points != null && pointsBadge(points)}
+              {hasResult ? (
+                <span>
                   Resultado:{' '}
                   <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
                   {match.penalty_winner && (
-                    <span className="ml-2 text-amber-400/70">
-                      · Penales: <span className="font-semibold">{match.penalty_winner}</span>
+                    <span className="text-amber-400/80">
+                      {' '}· {match.penalty_winner} (pen.)
                     </span>
                   )}
-                </div>
-                {prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
-                  <div>
-                    Tu penales:{' '}
-                    <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-                      {prediction.predicted_penalty_winner}
-                    </span>
-                  </div>
-                )}
-                {isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time !== null && match.has_extra_time !== undefined && (
-                  <div>
-                    Alargue: tu predicción{' '}
-                    <span className={`font-semibold ${prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-                      {prediction.predicted_extra_time === true ? 'Sí' : prediction.predicted_extra_time === false ? 'No' : '—'}
-                    </span>
-                    {' · '}real{' '}
-                    <span className="font-semibold text-on-dark">
-                      {match.has_extra_time ? 'Sí' : 'No'}
-                    </span>
-                    {prediction.predicted_extra_time === match.has_extra_time && (
-                      <span className="text-amber-400"> · +2 pts</span>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <span className="text-sm bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2.5 py-0.5 rounded-full">
-                Cerrado
-              </span>
+                </span>
+              ) : (
+                <span className="text-[11px] bg-orange-500/15 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                  Cerrado
+                </span>
+              )}
+            </div>
+            {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
+              <p>
+                Tu penales:{' '}
+                <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
+                  {prediction.predicted_penalty_winner}
+                </span>
+              </p>
+            )}
+            {hasResult && isKnockout && prediction && prediction.predicted_extra_time !== null && match.has_extra_time != null && (
+              <p className="leading-snug">
+                Alargue:{' '}
+                <span className={prediction.predicted_extra_time === match.has_extra_time ? 'text-amber-400 font-semibold' : 'text-on-dark-subtle'}>
+                  {prediction.predicted_extra_time ? 'Sí' : 'No'}
+                </span>
+                {' / '}
+                real {match.has_extra_time ? 'Sí' : 'No'}
+              </p>
             )}
           </div>
         )}
 
         {isLocked && (
-          <div className="mt-auto pt-3 w-full border-t border-white/5">
+          <div className="mt-2 pt-2 w-full border-t border-white/5">
             <MatchPredictionsPanel match={match} variant="modal" />
           </div>
         )}

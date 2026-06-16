@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getMatchPredictions } from '../api/matches'
 
 const KNOCKOUT_ROUNDS = new Set([
@@ -40,14 +41,14 @@ function sortPredictions(list, hasResult) {
 
 function PredictionsTable({ list, isKnockout, hasResult }) {
   if (list.length === 0) {
-    return <p className="text-sm text-white/40 text-center py-8">No hay predicciones aún</p>
+    return <p className="text-sm text-white/50 text-center py-8">No hay predicciones aún</p>
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto bg-[#111111]">
+      <table className="w-full text-sm bg-[#111111]">
         <thead>
-          <tr className="text-white/35 uppercase tracking-wider text-xs" style={{ background: '#161616' }}>
+          <tr className="text-white/50 uppercase tracking-wider text-xs bg-[#1a1a1a]">
             <th className="text-left px-4 py-2.5 font-semibold w-8">#</th>
             <th className="text-left px-4 py-2.5 font-semibold">Jugador</th>
             <th className="text-center px-4 py-2.5 font-semibold">Marcador</th>
@@ -64,10 +65,8 @@ function PredictionsTable({ list, isKnockout, hasResult }) {
           {list.map((p, i) => (
             <tr
               key={p.id}
-              style={{
-                borderTop: '1px solid #1f1f1f',
-                background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-              }}
+              className="bg-[#111111] even:bg-[#161616]"
+              style={{ borderTop: '1px solid #252525' }}
             >
               <td className="px-4 py-2.5 text-white/25 font-medium tabular-nums">{i + 1}</td>
               <td className="px-4 py-2.5 font-medium text-white/80">{p.username}</td>
@@ -107,27 +106,23 @@ function PredictionsModal({ match, list, loading, error, footerNote, onClose }) 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="predictions-modal-title"
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
         aria-label="Cerrar"
         onClick={onClose}
       />
       <div
-        className="relative w-full max-w-lg max-h-[92vh] sm:max-h-[min(90vh,720px)] overflow-hidden flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border border-white/10"
-        style={{ background: '#111111' }}
+        className="relative z-10 w-full max-w-lg max-h-[92vh] sm:max-h-[min(90vh,720px)] overflow-hidden flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border border-[#333] bg-[#111111]"
       >
-        <div
-          className="shrink-0 px-5 py-4 border-b border-white/10"
-          style={{ background: '#161616' }}
-        >
+        <div className="shrink-0 px-5 py-4 border-b border-[#2a2a2a] bg-[#1a1a1a]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-widest text-teal-400/80 mb-1">
@@ -165,7 +160,7 @@ function PredictionsModal({ match, list, loading, error, footerNote, onClose }) 
           )}
         </div>
 
-        <div className="overflow-y-auto flex-1 min-h-0">
+        <div className="overflow-y-auto flex-1 min-h-0 bg-[#111111]">
           {loading && (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
@@ -179,11 +174,12 @@ function PredictionsModal({ match, list, loading, error, footerNote, onClose }) 
           )}
         </div>
 
-        <p className="shrink-0 text-[10px] text-white/25 text-center py-2.5 border-t border-white/5">
+        <p className="shrink-0 text-[10px] text-white/40 text-center py-2.5 border-t border-[#2a2a2a] bg-[#1a1a1a]">
           {footerNote}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

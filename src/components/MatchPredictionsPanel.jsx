@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getMatchPredictions } from '../api/matches'
+import CopyImageButton from './CopyImageButton'
+import { copyElementImage } from '../utils/copyElementImage'
 
 const KNOCKOUT_ROUNDS = new Set([
   'Dieciseisavos', 'Octavos de Final', 'Cuartos de Final',
@@ -37,6 +39,21 @@ function sortPredictions(list, hasResult) {
     if (hasResult) return (b.points ?? -1) - (a.points ?? -1)
     return a.username.localeCompare(b.username)
   })
+}
+
+function MatchResultLine({ match }) {
+  const hasResult = match.home_score != null && match.away_score != null
+  if (!hasResult) return null
+
+  return (
+    <p className="text-sm text-white/60 mt-2">
+      Resultado:{' '}
+      <span className="font-bold text-white">{match.home_score}–{match.away_score}</span>
+      {match.penalty_winner && (
+        <span className="text-amber-400/90"> · {match.penalty_winner} (pen.)</span>
+      )}
+    </p>
+  )
 }
 
 function PredictionsTable({ list, isKnockout, hasResult }) {
@@ -96,9 +113,60 @@ function PredictionsTable({ list, isKnockout, hasResult }) {
   )
 }
 
+function PredictionsCaptureBlock({ match, list, isKnockout, hasResult, footerNote }) {
+  return (
+    <div className="w-[32rem] max-w-full bg-[#111111]">
+      <div className="px-5 py-4 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-teal-400/80 mb-1">
+          {match.match_number ? `P${match.match_number}` : 'Partido'}
+          {match.round_name ? ` · ${match.round_name}` : ''}
+        </p>
+        <h2 className="text-lg font-bold text-white leading-snug">
+          {match.home_team} vs {match.away_team}
+        </h2>
+        <p className="text-xs text-white/40 mt-1">{formatMatchDate(match.start_time)}</p>
+        <MatchResultLine match={match} />
+        <p className="text-xs text-white/35 mt-3">
+          {list.length} predicción{list.length !== 1 ? 'es' : ''}
+          {hasResult ? ' · ordenadas por puntos' : ' · orden alfabético'}
+        </p>
+      </div>
+      <PredictionsTable list={list} isKnockout={isKnockout} hasResult={hasResult} />
+      <p className="text-[10px] text-white/40 text-center py-2.5 border-t border-[#2a2a2a] bg-[#1a1a1a]">
+        {footerNote}
+      </p>
+    </div>
+  )
+}
+
+function useCopyPredictionsImage(match, captureRef) {
+  const [copyState, setCopyState] = useState('idle')
+
+  const handleCopy = async () => {
+    if (!captureRef.current) return
+    setCopyState('copying')
+    try {
+      const fileName = `predicciones-${match.match_number ? `p${match.match_number}` : `m${match.id}`}.png`
+      const result = await copyElementImage(captureRef.current, {
+        backgroundColor: '#111111',
+        fileName,
+      })
+      setCopyState(result === 'download' ? 'downloaded' : 'copied')
+      setTimeout(() => setCopyState('idle'), 2000)
+    } catch {
+      setCopyState('error')
+      setTimeout(() => setCopyState('idle'), 2000)
+    }
+  }
+
+  return { copyState, handleCopy }
+}
+
 function PredictionsModal({ match, list, loading, error, footerNote, onClose }) {
+  const captureRef = useRef(null)
   const isKnockout = KNOCKOUT_ROUNDS.has(match.round_name)
   const hasResult = match.home_score != null && match.away_score != null
+  const { copyState, handleCopy } = useCopyPredictionsImage(match, captureRef)
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -106,79 +174,99 @@ function PredictionsModal({ match, list, loading, error, footerNote, onClose }) 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const canCopy = !loading && !error && list.length > 0
+
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="predictions-modal-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
-        aria-label="Cerrar"
-        onClick={onClose}
-      />
+    <>
       <div
-        className="relative z-10 w-full max-w-lg max-h-[92vh] sm:max-h-[min(90vh,720px)] overflow-hidden flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border border-[#333] bg-[#111111]"
+        className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="predictions-modal-title"
       >
-        <div className="shrink-0 px-5 py-4 border-b border-[#2a2a2a] bg-[#1a1a1a]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-teal-400/80 mb-1">
-                {match.match_number ? `P${match.match_number}` : 'Partido'}
-                {match.round_name ? ` · ${match.round_name}` : ''}
-              </p>
-              <h2
-                id="predictions-modal-title"
-                className="text-base sm:text-lg font-bold text-white leading-snug"
-              >
-                {match.home_team} vs {match.away_team}
-              </h2>
-              <p className="text-xs text-white/40 mt-1">{formatMatchDate(match.start_time)}</p>
-              {hasResult && (
-                <p className="text-sm text-white/60 mt-2">
-                  Resultado:{' '}
-                  <span className="font-bold text-white">{match.home_score}–{match.away_score}</span>
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          aria-label="Cerrar"
+          onClick={onClose}
+        />
+        <div
+          className="relative z-10 w-full max-w-lg max-h-[92vh] sm:max-h-[min(90vh,720px)] overflow-hidden flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border border-[#333] bg-[#111111]"
+        >
+          <div className="shrink-0 px-5 py-4 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-teal-400/80 mb-1">
+                  {match.match_number ? `P${match.match_number}` : 'Partido'}
+                  {match.round_name ? ` · ${match.round_name}` : ''}
                 </p>
-              )}
+                <h2
+                  id="predictions-modal-title"
+                  className="text-base sm:text-lg font-bold text-white leading-snug"
+                >
+                  {match.home_team} vs {match.away_team}
+                </h2>
+                <p className="text-xs text-white/40 mt-1">{formatMatchDate(match.start_time)}</p>
+                <MatchResultLine match={match} />
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {canCopy && (
+                  <CopyImageButton variant="dark" state={copyState} onClick={handleCopy} />
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-white/40 hover:text-white text-xl leading-none p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  aria-label="Cerrar"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-white/40 hover:text-white text-xl leading-none p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
-              aria-label="Cerrar"
-            >
-              ✕
-            </button>
+            {canCopy && (
+              <p className="text-xs text-white/35 mt-3">
+                {list.length} predicción{list.length !== 1 ? 'es' : ''}
+                {hasResult ? ' · ordenadas por puntos' : ' · orden alfabético'}
+              </p>
+            )}
           </div>
-          {!loading && !error && list.length > 0 && (
-            <p className="text-xs text-white/35 mt-3">
-              {list.length} predicción{list.length !== 1 ? 'es' : ''}
-              {hasResult ? ' · ordenadas por puntos' : ''}
-            </p>
-          )}
-        </div>
 
-        <div className="overflow-y-auto flex-1 min-h-0 bg-[#111111]">
-          {loading && (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
-            </div>
-          )}
-          {error && (
-            <p className="text-sm text-red-400 text-center py-10 px-5">{error}</p>
-          )}
-          {!loading && !error && (
-            <PredictionsTable list={list} isKnockout={isKnockout} hasResult={hasResult} />
-          )}
-        </div>
+          <div className="overflow-y-auto flex-1 min-h-0 bg-[#111111]">
+            {loading && (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
+              </div>
+            )}
+            {error && (
+              <p className="text-sm text-red-400 text-center py-10 px-5">{error}</p>
+            )}
+            {!loading && !error && (
+              <PredictionsTable list={list} isKnockout={isKnockout} hasResult={hasResult} />
+            )}
+          </div>
 
-        <p className="shrink-0 text-[10px] text-white/40 text-center py-2.5 border-t border-[#2a2a2a] bg-[#1a1a1a]">
-          {footerNote}
-        </p>
+          <p className="shrink-0 text-[10px] text-white/40 text-center py-2.5 border-t border-[#2a2a2a] bg-[#1a1a1a]">
+            {footerNote}
+          </p>
+        </div>
       </div>
-    </div>,
+
+      {canCopy && (
+        <div
+          ref={captureRef}
+          aria-hidden="true"
+          className="fixed top-0 -left-[10000px] pointer-events-none"
+        >
+          <PredictionsCaptureBlock
+            match={match}
+            list={list}
+            isKnockout={isKnockout}
+            hasResult={hasResult}
+            footerNote={footerNote}
+          />
+        </div>
+      )}
+    </>,
     document.body,
   )
 }
@@ -189,6 +277,7 @@ export default function MatchPredictionsPanel({
   footerNote = 'Solo lectura',
   variant = 'inline',
 }) {
+  const captureRef = useRef(null)
   const [open, setOpen] = useState(false)
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(false)
@@ -196,6 +285,7 @@ export default function MatchPredictionsPanel({
 
   const isKnockout = KNOCKOUT_ROUNDS.has(match.round_name)
   const hasResult = match.home_score != null && match.away_score != null
+  const { copyState, handleCopy } = useCopyPredictionsImage(match, captureRef)
 
   const loadPredictions = async () => {
     setLoading(true)
@@ -226,6 +316,8 @@ export default function MatchPredictionsPanel({
     setOpen(true)
     await loadPredictions()
   }
+
+  const canCopy = open && !loading && !error && list.length > 0
 
   if (variant === 'modal') {
     return (
@@ -276,6 +368,11 @@ export default function MatchPredictionsPanel({
           className="mt-2 rounded-xl overflow-hidden"
           style={{ background: '#0d0d0d', border: '1px solid #252525' }}
         >
+          {canCopy && (
+            <div className="flex justify-end px-2 pt-2">
+              <CopyImageButton variant="dark" state={copyState} onClick={handleCopy} />
+            </div>
+          )}
           {loading && (
             <p className="text-xs text-white/30 text-center py-4">Cargando…</p>
           )}
@@ -288,6 +385,22 @@ export default function MatchPredictionsPanel({
           <p className="text-[10px] text-white/20 text-center py-2 border-t border-white/5">
             {footerNote}
           </p>
+        </div>
+      )}
+
+      {canCopy && (
+        <div
+          ref={captureRef}
+          aria-hidden="true"
+          className="fixed top-0 -left-[10000px] pointer-events-none"
+        >
+          <PredictionsCaptureBlock
+            match={match}
+            list={list}
+            isKnockout={isKnockout}
+            hasResult={hasResult}
+            footerNote={footerNote}
+          />
         </div>
       )}
     </div>

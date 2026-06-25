@@ -127,7 +127,6 @@ def calculate_match_points(db: Session, match: Match) -> None:
     1. Score every prediction for this match and persist `points`.
     2. Recompute each affected user's aggregate stats from scratch.
     3. Auto-propagate bracket (winner into next round's match).
-    4. For group stage matches, auto-fill Dieciseisavos teams when group is done.
     """
     if match.home_score is None or match.away_score is None:
         return
@@ -159,9 +158,6 @@ def calculate_match_points(db: Session, match: Match) -> None:
 
     _propagate_bracket(db, match)
 
-    if match.round_name and match.round_name.startswith("Grupo "):
-        _propagate_group_results(db, match.round_name)
-
     db.commit()
 
 
@@ -186,9 +182,6 @@ def clear_match_result(db: Session, match: Match) -> None:
     db.flush()
 
     _revert_bracket_propagation(db, match)
-
-    if match.round_name and match.round_name.startswith("Grupo "):
-        _refresh_group_knockout_slots(db, match.round_name)
 
     for user_id in affected_user_ids:
         _recompute_user_stats(db, user_id)
@@ -266,69 +259,6 @@ def _revert_bracket_propagation(db: Session, match: Match) -> None:
                 target.home_team = placeholder
             else:
                 target.away_team = placeholder
-            db.flush()
-
-
-def _refresh_group_knockout_slots(db: Session, group_name: str) -> None:
-    """Re-propagate dieciseisavos slots when the group still has all results."""
-    group_matches = db.query(Match).filter(Match.round_name == group_name).all()
-    if not group_matches:
-        return
-    if all(m.home_score is not None and m.away_score is not None for m in group_matches):
-        _propagate_group_results(db, group_name)
-
-
-def _propagate_group_results(db: Session, group_name: str) -> None:
-    """
-    Once every match in a group has a result, compute standings and update
-    Dieciseisavos placeholder team names.
-    """
-    group_matches = db.query(Match).filter(Match.round_name == group_name).all()
-    if not group_matches:
-        return
-
-    if not all(m.home_score is not None and m.away_score is not None for m in group_matches):
-        return
-
-    teams: dict[str, dict] = {}
-    for m in group_matches:
-        for team, gf, ga in [
-            (m.home_team, m.home_score, m.away_score),
-            (m.away_team, m.away_score, m.home_score),
-        ]:
-            if team not in teams:
-                teams[team] = {"pts": 0, "gf": 0, "ga": 0}
-            teams[team]["pts"] += 3 if gf > ga else (1 if gf == ga else 0)
-            teams[team]["gf"] += gf
-            teams[team]["ga"] += ga
-
-    sorted_teams = sorted(
-        teams.items(),
-        key=lambda x: (-x[1]["pts"], -(x[1]["gf"] - x[1]["ga"]), -x[1]["gf"], x[0]),
-    )
-
-    gl = group_name.split()[-1]
-    replacements: dict[str, str] = {}
-    if len(sorted_teams) > 0:
-        replacements[f"1° Grupo {gl}"] = sorted_teams[0][0]
-        replacements[f"1º Grupo {gl}"] = sorted_teams[0][0]
-    if len(sorted_teams) > 1:
-        replacements[f"2° Grupo {gl}"] = sorted_teams[1][0]
-        replacements[f"2º Grupo {gl}"] = sorted_teams[1][0]
-    if len(sorted_teams) > 2:
-        replacements[f"3° Grupo {gl}"] = sorted_teams[2][0]
-        replacements[f"3º Grupo {gl}"] = sorted_teams[2][0]
-
-    knockout_matches = db.query(Match).filter(Match.match_number >= 73).all()
-    for m in knockout_matches:
-        changed = False
-        if m.home_team in replacements:
-            m.home_team = replacements[m.home_team]
-            changed = True
-        if m.away_team in replacements:
-            m.away_team = replacements[m.away_team]
-            changed = True
-        if changed:
             db.flush()
 
 

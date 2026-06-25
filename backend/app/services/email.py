@@ -36,10 +36,12 @@ def send_password_reset_email(to_email: str, reset_url: str) -> None:
     """
 
     if not settings.smtp_configured:
-        logger.warning(
-            "SMTP no configurado. Enlace de recuperación para %s: %s",
+        logger.error(
+            "SMTP no configurado (SMTP_HOST=%r, SMTP_FROM=%r). "
+            "No se envió correo de recuperación a %s",
+            settings.SMTP_HOST,
+            settings.SMTP_FROM,
             to_email,
-            reset_url,
         )
         return
 
@@ -50,9 +52,13 @@ def send_password_reset_email(to_email: str, reset_url: str) -> None:
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30) as server:
-        if settings.SMTP_USE_TLS:
-            server.starttls()
-        if settings.SMTP_USER:
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.sendmail(settings.SMTP_FROM, [to_email], msg.as_string())
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30) as server:
+            if settings.SMTP_USE_TLS:
+                server.starttls()
+            if settings.SMTP_USER:
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.sendmail(settings.SMTP_FROM, [to_email], msg.as_string())
+        logger.info("Correo de recuperación enviado a %s", to_email)
+    except Exception:
+        logger.exception("Error al enviar correo de recuperación a %s", to_email)

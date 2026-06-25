@@ -27,6 +27,7 @@ try {
         --project=$Project `
         --add-cloudsql-instances=$CloudSql `
         --env-vars-file=env-vars.yaml `
+        --update-secrets="SMTP_PASSWORD=smtp-password:latest" `
         --allow-unauthenticated `
         --port=8080 `
         --quiet

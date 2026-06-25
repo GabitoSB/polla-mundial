@@ -5,7 +5,7 @@ from app.api.deps import get_current_admin, get_current_user
 from app.core.database import get_db
 from app.models.match import Match
 from app.models.user import User
-from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchScheduleUpdate
+from app.schemas.match import MatchCreate, MatchResponse, MatchResultUpdate, MatchScheduleUpdate, MatchTeamsUpdate
 from app.schemas.prediction import PredictionAdminResponse
 from app.services.knockout import is_knockout_round, normalize_knockout_result
 from app.services.match_predictions import assert_match_predictions_visible, list_match_predictions as fetch_match_predictions
@@ -68,6 +68,39 @@ def update_schedule(
     if not match:
         raise HTTPException(status_code=404, detail="Partido no encontrado")
     match.start_time = payload.start_time
+    db.commit()
+    db.refresh(match)
+    return match
+
+
+@router.put("/{match_id}/teams", response_model=MatchResponse)
+def update_teams(
+    match_id: int,
+    payload: MatchTeamsUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    """Define manualmente los equipos de un partido eliminatorio (placeholders → nombres reales)."""
+    match = db.get(Match, match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    if not is_knockout_round(match.round_name):
+        raise HTTPException(status_code=400, detail="Solo se pueden editar equipos en eliminatorias")
+    if match.home_score is not None or match.away_score is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pueden cambiar equipos con resultado cargado",
+        )
+
+    home = payload.home_team.strip()
+    away = payload.away_team.strip()
+    if not home or not away:
+        raise HTTPException(status_code=400, detail="Local y visitante son obligatorios")
+    if home == away:
+        raise HTTPException(status_code=400, detail="Local y visitante deben ser distintos")
+
+    match.home_team = home
+    match.away_team = away
     db.commit()
     db.refresh(match)
     return match

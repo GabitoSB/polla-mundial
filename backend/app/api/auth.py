@@ -104,7 +104,10 @@ def get_avatar(user_id: int, db: Session = Depends(get_db)):
     return Response(
         content=user.avatar_data,
         media_type=user.avatar_content_type or "image/jpeg",
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
     )
 
 

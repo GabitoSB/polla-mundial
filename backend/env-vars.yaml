@@ -2,3 +2,8 @@ ALLOWED_ORIGINS: "https://pulpopaul-497715.web.app,https://pulpopaul-497715.fire
 DATABASE_URL: "postgresql+psycopg://admin:root@/polla_mundial?host=/cloudsql/pulpopaul-497715:us-central1:polla-db-instance"
 SECRET_KEY: "pullopaul-super-secret-key-2026"
 FRONTEND_URL: "https://pulpopaul-497715.web.app"
+SMTP_HOST: "smtp.gmail.com"
+SMTP_PORT: "587"
+SMTP_USER: "pulpopaulmundial2026@gmail.com"
+SMTP_FROM: "Pulpo Paul <pulpopaulmundial2026@gmail.com>"
+SMTP_USE_TLS: "true"

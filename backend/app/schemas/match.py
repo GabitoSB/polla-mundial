@@ -35,3 +35,8 @@ class MatchResultUpdate(BaseModel):
 
 class MatchScheduleUpdate(BaseModel):
     start_time: datetime
+
+
+class MatchTeamsUpdate(BaseModel):
+    home_team: str
+    away_team: str

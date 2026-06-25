@@ -68,8 +68,7 @@ const MATCH_CARD_WIDTH_PX = Math.ceil(Math.max(bodyWidthPx(), headerWidthPx()))
 /** Ancho fijo de tarjeta: sin crecer con 1fr. */
 export const MATCH_CARD_WIDTH = `${(MATCH_CARD_WIDTH_PX / 17).toFixed(2)}rem`
 
-/** Ancho y alto fijos de tarjeta para grilla uniforme. */
+/** Ancho fijo de tarjeta; alto lo define la fila del grid (sin hueco interno). */
 export const MATCH_CARD_WIDTH_CSS = {
   '--match-card-width': MATCH_CARD_WIDTH,
-  '--match-card-height': '14.75rem',
 }

@@ -67,6 +67,9 @@ export default function Navbar() {
       <NavLink to="/leaderboard" className={navLinkCls} style={navLinkStyle} onClick={closeMenu}>
         Tabla
       </NavLink>
+      <NavLink to="/evolucion" className={navLinkCls} style={navLinkStyle} onClick={closeMenu}>
+        Evolución
+      </NavLink>
       {user.is_admin && (
         <NavLink to="/admin" className={adminLinkCls} style={adminLinkStyle} onClick={closeMenu}>
           Administración
@@ -131,6 +134,7 @@ export default function Navbar() {
           <div className="flex items-center justify-end gap-5 shrink-0">
             <NavLink to="/" end className={navLinkCls} style={navLinkStyle}>Partidos</NavLink>
             <NavLink to="/leaderboard" className={navLinkCls} style={navLinkStyle}>Tabla</NavLink>
+            <NavLink to="/evolucion" className={navLinkCls} style={navLinkStyle}>Evolución</NavLink>
             {user.is_admin && (
               <NavLink to="/admin" className={adminLinkCls} style={adminLinkStyle}>
                 Administración

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getLeaderboard } from '../api/leaderboard'
+import CopyImageButton from '../components/CopyImageButton'
 import UserAvatar from '../components/UserAvatar'
 import { useAuth } from '../context/AuthContext'
+import { copyLeaderboardImage } from '../utils/copyLeaderboardImage'
+import { preloadAvatarDataUrls } from '../utils/preloadAvatars'
 
 function InfoModal({ title, onClose, children }) {
   useEffect(() => {
@@ -229,12 +233,37 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
+  const [copyState, setCopyState] = useState('idle')
 
   useEffect(() => {
     getLeaderboard()
       .then((r) => setEntries(r.data))
       .finally(() => setLoading(false))
   }, [])
+
+  const captureDateLabel = new Date().toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const handleCopyTable = async () => {
+    if (!entries.length) return
+    setCopyState('copying')
+    try {
+      const avatarMap = await preloadAvatarDataUrls(entries)
+      const result = await copyLeaderboardImage({
+        entries,
+        avatarSrcByUserId: avatarMap,
+        dateLabel: captureDateLabel,
+      })
+      setCopyState(result === 'download' ? 'downloaded' : 'copied')
+      setTimeout(() => setCopyState('idle'), 2000)
+    } catch {
+      setCopyState('error')
+      setTimeout(() => setCopyState('idle'), 2000)
+    }
+  }
 
   if (loading)
     return (
@@ -260,67 +289,84 @@ export default function LeaderboardPage() {
             Tabla de Posiciones
           </h1>
 
+          <div className="mb-4 sm:mb-5 flex justify-center">
+            <Link
+              to="/evolucion"
+              className="text-sm font-semibold text-white/85 hover:text-white px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 transition-colors"
+            >
+              Ver evolución del ranking →
+            </Link>
+          </div>
+
           <div className="rounded-2xl overflow-x-auto bg-white/95 shadow-xl border border-slate-200/90 backdrop-blur-md w-fit max-w-full mx-auto">
+            {entries.length > 0 && (
+              <div className="flex justify-end px-2 pt-2 sm:px-3">
+                <CopyImageButton state={copyState} onClick={handleCopyTable} />
+              </div>
+            )}
+
             {entries.length === 0 ? (
               <div className="text-center py-12 px-8 text-slate-400">
                 <p>Aún no hay puntuaciones</p>
               </div>
             ) : (
-              <table className="w-full border-collapse text-base table-auto">
-                <thead>
-                  <tr className="text-sm font-bold text-slate-500 uppercase tracking-widest bg-slate-100 border-b border-slate-200">
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-left font-bold w-0 whitespace-nowrap">#</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-left font-bold whitespace-nowrap">Jugador</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap">Pts</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap max-sm:hidden sm:table-cell">Exactos</th>
-                    <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap max-sm:hidden sm:table-cell">Parciales</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry, idx) => {
-                    const isMe = entry.username === user?.username
-                    return (
-                      <tr
-                        key={entry.user_id}
-                        className={`transition-colors
-                          ${idx % 2 === 1 && !isMe ? 'bg-slate-50/80' : 'bg-white'}
-                          ${isMe ? 'bg-teal-50 ring-1 ring-inset ring-teal-200' : ''}
-                        `}
-                        style={{ borderBottom: '1px solid #e2e8f0' }}
-                      >
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 font-bold text-slate-400 tabular-nums whitespace-nowrap">
-                          {entry.rank}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap max-w-[10rem] sm:max-w-none">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <UserAvatar
-                              username={entry.username}
-                              avatarUrl={entry.avatar_url}
-                              size="sm"
-                            />
-                            <span className={`block truncate ${isMe ? 'text-teal-700 font-bold' : 'text-slate-800 font-medium'}`}>
-                              {entry.username}
-                              {isMe && <span className="ml-1 text-sm text-teal-600 font-semibold">(tú)</span>}
+              <div className="bg-white min-w-0">
+                <table className="w-full border-collapse text-base table-auto leaderboard-visible-table">
+                  <thead>
+                    <tr className="text-sm font-bold text-slate-500 uppercase tracking-widest bg-slate-100 border-b border-slate-200">
+                      <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-left font-bold w-0 whitespace-nowrap">#</th>
+                      <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-left font-bold whitespace-nowrap">Jugador</th>
+                      <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap">Pts</th>
+                      <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap max-sm:hidden sm:table-cell">Exactos</th>
+                      <th className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap max-sm:hidden sm:table-cell">Parciales</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entries.map((entry, idx) => {
+                      const isMe = entry.username === user?.username
+                      return (
+                        <tr
+                          key={entry.user_id}
+                          className={`transition-colors
+                            ${idx % 2 === 1 && !isMe ? 'bg-slate-50/80' : 'bg-white'}
+                            ${isMe ? 'bg-teal-50 ring-1 ring-inset ring-teal-200' : ''}
+                          `}
+                          style={{ borderBottom: '1px solid #e2e8f0' }}
+                        >
+                          <td className="px-2 sm:px-4 py-2.5 sm:py-3 font-bold text-slate-400 tabular-nums whitespace-nowrap">
+                            {entry.rank}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap max-w-[10rem] sm:max-w-none">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <UserAvatar
+                                username={entry.username}
+                                avatarUrl={entry.avatar_url}
+                                size="sm"
+                              />
+                              <span className={`block truncate ${isMe ? 'text-teal-700 font-bold' : 'text-slate-800 font-medium'}`}>
+                                {entry.username}
+                                {isMe && <span className="ml-1 text-sm text-teal-600 font-semibold">(tú)</span>}
+                              </span>
+                            </div>
+                            <span className="sm:hidden text-xs text-slate-400 mt-0.5 block">
+                              {entry.exact_results} exactos · {entry.partial_score_hits} parc.
                             </span>
-                          </div>
-                          <span className="sm:hidden text-xs text-slate-400 mt-0.5 block">
-                            {entry.exact_results} exactos · {entry.partial_score_hits} parc.
-                          </span>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-black text-slate-900 text-lg sm:text-xl tabular-nums whitespace-nowrap">
-                          {entry.total_points}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-emerald-600 font-bold tabular-nums whitespace-nowrap max-sm:hidden sm:table-cell">
-                          {entry.exact_results}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-slate-500 font-semibold tabular-nums whitespace-nowrap max-sm:hidden sm:table-cell">
-                          {entry.partial_score_hits}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right font-black text-slate-900 text-lg sm:text-xl tabular-nums whitespace-nowrap">
+                            {entry.total_points}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-emerald-600 font-bold tabular-nums whitespace-nowrap max-sm:hidden sm:table-cell">
+                            {entry.exact_results}
+                          </td>
+                          <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-slate-500 font-semibold tabular-nums whitespace-nowrap max-sm:hidden sm:table-cell">
+                            {entry.partial_score_hits}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 

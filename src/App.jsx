@@ -8,6 +8,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import MatchesPage from './pages/MatchesPage'
 import LeaderboardPage from './pages/LeaderboardPage'
+import RankingEvolutionPage from './pages/RankingEvolutionPage'
 import AdminPage from './pages/AdminPage'
 
 export default function App() {
@@ -26,6 +27,9 @@ export default function App() {
             } />
             <Route path="/leaderboard" element={
               <ProtectedRoute><LeaderboardPage /></ProtectedRoute>
+            } />
+            <Route path="/evolucion" element={
+              <ProtectedRoute><RankingEvolutionPage /></ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>

@@ -124,18 +124,18 @@ function ExtraTimePicker({ value, onChange, locked = false }) {
   const display = locked ? true : value
 
   return (
-    <div className="mt-1.5 flex items-center justify-center gap-2">
-      <span className="text-xs font-bold text-on-dark-muted uppercase tracking-wider shrink-0">
+    <div className="flex items-center justify-center gap-1.5 w-full">
+      <span className="text-[10px] font-bold text-on-dark-muted uppercase tracking-wider shrink-0">
         Alargue
       </span>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         {[true, false].map((opt) => (
           <button
             key={String(opt)}
             type="button"
             disabled={locked}
             onClick={() => !locked && onChange(value === opt ? null : opt)}
-            className={`px-3.5 py-1.5 rounded-md text-sm font-bold transition-all min-w-[3rem] ${
+            className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
               locked ? 'cursor-not-allowed' : ''
             }`}
             style={{
@@ -249,7 +249,7 @@ export default function MatchCard({ match, prediction, onSaved }) {
     resultColor === 'yellow' ? 'border-yellow-400/50 shadow-lg shadow-yellow-900/20' :
     resultColor === 'red'    ? 'border-red-500/40 shadow-lg shadow-red-900/20' :
     hasPrediction            ? 'border-teal-500/40 shadow-lg shadow-teal-900/20' :
-    isLocked                 ? 'border-white/5 opacity-70' :
+    isLocked                 ? 'border-white/10' :
                                'border-white/8 hover:border-white/15'
 
   const headerBg =
@@ -295,9 +295,8 @@ export default function MatchCard({ match, prediction, onSaved }) {
         </span>
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0 px-3 py-2">
-        {/* Equipos + marcador */}
-        <div className="shrink-0 flex flex-row items-start justify-center gap-2">
+      <div className="flex flex-col shrink-0 px-3 py-1.5 gap-1">
+        <div className="shrink-0 flex flex-row items-center justify-center gap-1.5">
           <TeamLabel
             name={match.home_team}
             selectable={!isLocked && !hasResult && showPenaltyPicker}
@@ -305,26 +304,26 @@ export default function MatchCard({ match, prediction, onSaved }) {
             onSelect={() => setPenaltyWinner(penaltyWinner === match.home_team ? null : match.home_team)}
           />
 
-          <div className="flex-shrink-0 flex items-center justify-center h-[3.25rem]">
+          <div className="flex-shrink-0 flex items-center justify-center">
             {hasResult || isLocked ? (
               <div
-                className="flex items-center justify-center gap-1.5 rounded-lg px-3 h-full min-w-[4.5rem]"
+                className="flex items-center justify-center gap-1 rounded-lg px-2.5 py-1 min-w-[4rem]"
                 style={{ background: '#1e1e1e', border: '1px solid #2a2a2a' }}
               >
                 {prediction ? (
                   <>
-                    <span className="text-xl font-black text-white">{prediction.predicted_home}</span>
-                    <span className="text-white/20 text-sm">–</span>
-                    <span className="text-xl font-black text-white">{prediction.predicted_away}</span>
+                    <span className="text-lg font-black text-white">{prediction.predicted_home}</span>
+                    <span className="text-white/20 text-xs">–</span>
+                    <span className="text-lg font-black text-white">{prediction.predicted_away}</span>
                   </>
                 ) : (
-                  <span className="text-base text-white/20">–</span>
+                  <span className="text-sm text-white/20">–</span>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 h-full">
+              <div className="flex items-center gap-1">
                 <ScoreInput value={home} onChange={handleHomeChange} />
-                <span className="text-white/20 font-bold">–</span>
+                <span className="text-white/20 font-bold text-sm">–</span>
                 <ScoreInput value={away} onChange={handleAwayChange} />
               </div>
             )}
@@ -338,24 +337,23 @@ export default function MatchCard({ match, prediction, onSaved }) {
           />
         </div>
 
-        {/* Zona media: alargue, resultado o espacio flexible */}
-        <div className="flex-1 min-h-0 flex flex-col justify-center overflow-hidden py-0.5">
-          {!isLocked && !hasResult && isKnockout && (
-            <ExtraTimePicker
-              value={predictedDraw ? true : extraTime}
-              onChange={setExtraTime}
-              locked={predictedDraw}
-            />
-          )}
+        {(isLocked || (!hasResult && isKnockout)) && (
+          <div className="shrink-0 flex items-center justify-center overflow-hidden w-full min-h-[1.125rem]">
+            {!isLocked && !hasResult && isKnockout && (
+              <ExtraTimePicker
+                value={predictedDraw ? true : extraTime}
+                onChange={setExtraTime}
+                locked={predictedDraw}
+              />
+            )}
 
-          {isLocked && (
-            <div className="text-center text-[11px] leading-snug text-on-dark-muted space-y-0.5 px-0.5">
-              <div className="flex flex-wrap items-center justify-center gap-1">
-                {points != null && pointsBadge(points)}
+            {isLocked && (
+              <div className="text-center text-[11px] leading-tight text-on-dark-muted w-full px-0.5 truncate">
                 {hasResult ? (
                   <span>
-                    Resultado:{' '}
+                    {points != null && <span className="mr-1.5">{pointsBadge(points)}</span>}
                     <span className="font-semibold text-on-dark">{match.home_score}–{match.away_score}</span>
+                    <span className="text-on-dark-muted"> resultado</span>
                     {match.penalty_winner && (
                       <span className="text-amber-400/80"> · {match.penalty_winner}</span>
                     )}
@@ -366,25 +364,11 @@ export default function MatchCard({ match, prediction, onSaved }) {
                   </span>
                 )}
               </div>
-              {hasResult && prediction?.predicted_penalty_winner && match.home_score === match.away_score && (
-                <p className="truncate">
-                  Penales:{' '}
-                  <span className={`font-semibold ${prediction.predicted_penalty_winner === match.penalty_winner ? 'text-amber-400' : 'text-on-dark-subtle'}`}>
-                    {prediction.predicted_penalty_winner}
-                  </span>
-                </p>
-              )}
-              {hasResult && isKnockout && prediction?.predicted_extra_time != null && match.has_extra_time != null && (
-                <p className="truncate">
-                  Alargue: {prediction.predicted_extra_time ? 'Sí' : 'No'} / real {match.has_extra_time ? 'Sí' : 'No'}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* Pie fijo: Guardar o Ver predicciones */}
-        <div className="shrink-0 pt-1.5 border-t border-white/5">
+        <div className="shrink-0 pt-1 border-t border-white/5">
           {isLocked ? (
             <MatchPredictionsPanel match={match} variant="modal" />
           ) : (

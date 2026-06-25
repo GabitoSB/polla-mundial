@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
+from app.services.leaderboard_history import build_leaderboard_history
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
@@ -19,6 +20,34 @@ class LeaderboardEntry(BaseModel):
     avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class HistoryPlayer(BaseModel):
+    user_id: int
+    username: str
+    avatar_url: str | None = None
+
+
+class HistorySnapshot(BaseModel):
+    key: str
+    match_id: int | None = None
+    match_number: int | None = None
+    label: str
+    date: str | None = None
+
+
+class LeaderboardHistoryResponse(BaseModel):
+    snapshots: list[HistorySnapshot]
+    players: list[HistoryPlayer]
+    rows: list[dict]
+
+
+@router.get("/history", response_model=LeaderboardHistoryResponse)
+def get_leaderboard_history(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return build_leaderboard_history(db)
 
 
 @router.get("/", response_model=list[LeaderboardEntry])

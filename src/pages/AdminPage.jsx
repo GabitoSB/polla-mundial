@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { MUNDIAL_COUNTRIES } from '../constants/countries'
-import { clearResult, getMatches, updateResult, updateSchedule } from '../api/matches'
+import { clearResult, getMatches, updateResult, updateSchedule, updateTeams } from '../api/matches'
 import BracketDiagram from '../components/BracketDiagram'
+import TeamSelect from '../components/TeamSelect'
 import MatchPredictionsPanel from '../components/MatchPredictionsPanel'
 import ViewLayoutToggle from '../components/ViewLayoutToggle'
 import { sortMatches } from '../utils/matchSort'
@@ -320,6 +321,104 @@ function useMatchResultEditor(onRefresh) {
   }
 }
 
+// ── Knockout team editor ──────────────────────────────────────────────────────
+
+function teamSelectValue(name) {
+  return isTBD(name) ? '' : name
+}
+
+function KnockoutTeamsEditor({ match, onSaved }) {
+  const [home, setHome] = useState(() => teamSelectValue(match.home_team))
+  const [away, setAway] = useState(() => teamSelectValue(match.away_team))
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  useEffect(() => {
+    setHome(teamSelectValue(match.home_team))
+    setAway(teamSelectValue(match.away_team))
+  }, [match.home_team, match.away_team])
+
+  const handleSave = async () => {
+    const h = home.trim()
+    const a = away.trim()
+    if (!h || !a) {
+      setMsg('Selecciona local y visitante')
+      return
+    }
+    if (h === a) {
+      setMsg('Local y visitante deben ser distintos')
+      return
+    }
+    setSaving(true)
+    setMsg(null)
+    try {
+      await updateTeams(match.id, { home_team: h, away_team: a })
+      setMsg('ok')
+      onSaved?.()
+      setTimeout(() => setMsg(null), 2000)
+    } catch (err) {
+      setMsg(err.response?.data?.detail ?? 'Error al guardar equipos')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const savedHome = teamSelectValue(match.home_team)
+  const savedAway = teamSelectValue(match.away_team)
+  const unchanged = home === savedHome && away === savedAway
+
+  return (
+    <div
+      className="mt-3 rounded-lg px-3 py-3 space-y-2"
+      style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.22)' }}
+    >
+      <p className="text-xs font-bold text-blue-400/90 uppercase tracking-wide">
+        Definir equipos
+      </p>
+      <p className="text-[11px] text-white/45 leading-relaxed">
+        Elige los países en la lista. Los placeholders se mantienen hasta guardar.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Local</span>
+          <div className="mt-1">
+            <TeamSelect
+              value={home}
+              onChange={setHome}
+              placeholder={isTBD(match.home_team) ? match.home_team : 'Seleccionar local'}
+              exclude={away}
+            />
+          </div>
+        </label>
+        <label className="block">
+          <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Visitante</span>
+          <div className="mt-1">
+            <TeamSelect
+              value={away}
+              onChange={setAway}
+              placeholder={isTBD(match.away_team) ? match.away_team : 'Seleccionar visitante'}
+              exclude={home}
+            />
+          </div>
+        </label>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || unchanged || !home || !away}
+          className="text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-30"
+          style={{ background: 'rgba(59,130,246,0.35)', border: '1px solid rgba(59,130,246,0.45)' }}
+        >
+          {saving ? '…' : 'Guardar equipos'}
+        </button>
+        {msg === 'ok' && <span className="text-green-400 text-xs font-semibold">✓</span>}
+        {msg && msg !== 'ok' && <span className="text-red-400 text-xs">{msg}</span>}
+      </div>
+    </div>
+  )
+}
+
 function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
   const {
     results, penaltyWinners, extraTimeMap, saving, clearing, saveMsg,
@@ -342,6 +441,7 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
   const saveReady = canSaveResult(m)
   const isFinished = status === 'finished'
   const rowStyle = ROW_STYLE[status]
+  const showTeamsEditor = isKnockoutRound && !isFinished
   const inputCls = 'w-12 text-center rounded-lg px-2 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors'
   const inputStyle = isFinished
     ? { background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }
@@ -490,6 +590,7 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
           </div>
         </div>
         <p className="text-[10px] text-on-dark-muted mb-2">{fmt(m.start_time)}</p>
+        {showTeamsEditor && <KnockoutTeamsEditor match={m} onSaved={onRefresh} />}
         {scoreControls}
         <MatchPredictionsPanel match={m} footerNote="Solo lectura · supervisión" />
       </div>
@@ -519,6 +620,7 @@ function AdminMatchRow({ match: m, editor, onRefresh, compact = false }) {
             <p className="text-xs text-on-dark-muted">{fmt(m.start_time)}</p>
             <DateEditRow match={m} onSaved={onRefresh} />
           </div>
+          {showTeamsEditor && <KnockoutTeamsEditor match={m} onSaved={onRefresh} />}
         </div>
 
         <div className="flex flex-col gap-2 lg:justify-self-end">{scoreControls}</div>
@@ -658,8 +760,9 @@ function BracketTab({ matches, onRefresh }) {
       >
         <p className="font-semibold text-amber-400 mb-1">Cuadro eliminatorio</p>
         <p className="text-amber-400/70">
-          Vista en árbol: el ganador avanza hacia el centro. Haz clic en un cruce para cargar marcador,
-          alargue, penales y ver predicciones.
+          Los cruces de dieciseisavos vienen con placeholders (1° Grupo A, 3° Grupos A/B/C/D/F, etc.).
+          Defínelos manualmente en cada partido antes de cargar el marcador. Los ganadores avanzan
+          automáticamente a la siguiente ronda al guardar el resultado.
         </p>
       </div>
 
